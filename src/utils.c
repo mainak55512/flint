@@ -131,3 +131,14 @@ int copy_file(const char *src_path, const char *dest_path) {
 	fclose(dest);
 	return 0;
 }
+
+bool check_if_dep_path(const char *str) {
+	size_t len_prefix = strlen("deps");
+	size_t len_str = strlen(str);
+
+	if (len_str < len_prefix) {
+		return false;
+	}
+
+	return strncmp(str, "deps", len_prefix) == 0;
+}

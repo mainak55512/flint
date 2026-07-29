@@ -1,3 +1,4 @@
+#include "cstring.h"
 #include <mybuild.h>
 
 void update_package_file(yyjson_mut_doc *package) {
@@ -59,6 +60,9 @@ void sync_dependency() {
 			const char *dep_name = yyjson_mut_get_str(key);
 
 			yyjson_mut_val *dep_remote = yyjson_mut_obj_get(dep_obj, "remote");
+			yyjson_mut_val *src = yyjson_mut_obj_get(dep_obj, "src");
+			yyjson_mut_val *include_paths =
+				yyjson_mut_obj_get(dep_obj, "include_paths");
 			yyjson_mut_val *flags = yyjson_mut_obj_get(dep_obj, "flags");
 			yyjson_mut_val *lib_links =
 				yyjson_mut_obj_get(dep_obj, "lib_links");
@@ -71,7 +75,7 @@ void sync_dependency() {
 				// *)yyjson_mut_get_str(dep_remote), 			  true);
 
 				fetch_library(installed, (char *)yyjson_mut_get_str(dep_remote),
-							  flags, lib_links, true);
+							  src, include_paths, flags, lib_links, true);
 			}
 		}
 
@@ -111,7 +115,7 @@ void add_library(char *libURL) {
 	yyjson_doc_free(current_doc);
 	if (!set_contains(set, libURL)) {
 		set_add(set, libURL);
-		fetch_library(set, libURL, NULL, NULL, false);
+		fetch_library(set, libURL, NULL, NULL, NULL, NULL, false);
 	}
 	yyjson_doc *package = yyjson_read_file("./deps/.package", 0, NULL, &err);
 	yyjson_mut_doc *package_mut = yyjson_doc_mut_copy(package, NULL);
@@ -144,8 +148,10 @@ String *clone_lib(Arena *arena, char *libURL) {
 	return repo_name;
 }
 
-void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
-				   yyjson_mut_val *sync_lib_links, bool sync) {
+void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
+				   yyjson_mut_val *sync_include_paths,
+				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
+				   bool sync) {
 	String *command, *repo_name, *dep_mybuild_path;
 	Arena *str_arena;
 	yyjson_read_err err;
@@ -184,8 +190,13 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 	yyjson_mut_val *current_flags = yyjson_mut_obj_get(current_root, "flags");
 	yyjson_mut_val *current_lib_links =
 		yyjson_mut_obj_get(current_root, "lib_links");
+	yyjson_mut_val *current_src = yyjson_mut_obj_get(current_root, "src");
+	yyjson_mut_val *current_incl =
+		yyjson_mut_obj_get(current_root, "include_paths");
 	char *version = (char *)yyjson_get_str(yyjson_obj_get(dep_root, "version"));
 
+	Vector *src_vec = vector_init(char *);
+	Vector *incl_vec = vector_init(char *);
 	Vector *flag_vec = vector_init(char *);
 	Vector *lib_link_vec = vector_init(char *);
 
@@ -218,13 +229,57 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 			set_add(lib_link_vec, (char *)yyjson_mut_get_str(val_mut));
 		}
 	}
+	idx = 0, max = 0;
+	yyjson_mut_arr_foreach(current_src, idx, max, val_mut) {
+		set_add(src_vec, (char *)yyjson_mut_get_str(val_mut));
+	}
+	yyjson_arr_foreach(src, idx, max, val) {
+		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
+			char *src_path = string(
+				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
+								   "/", (char *)yyjson_get_str(val)));
+			set_add(src_vec, src_path);
+		} else {
+			set_add(src_vec, (char *)yyjson_get_str(val));
+		}
+	}
+	if (sync && yyjson_mut_is_arr(sync_src)) {
+		yyjson_mut_arr_foreach(sync_src, idx, max, val_mut) {
+			char *src_path = string(
+				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
+								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			set_add(src_vec, src_path);
+			// set_add(src_vec, (char *)yyjson_mut_get_str(val_mut));
+		}
+	}
 
-	// yyjson_mut_obj_remove_str(target_obj, "flags");
-	// yyjson_mut_obj_remove_str(target_obj, "lib_links");
+	idx = 0, max = 0;
+	yyjson_mut_arr_foreach(current_incl, idx, max, val_mut) {
+		set_add(incl_vec, (char *)yyjson_mut_get_str(val_mut));
+	}
+	yyjson_arr_foreach(headers, idx, max, val) {
+		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
+			char *src_path = string(
+				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
+								   "/", (char *)yyjson_get_str(val)));
+			set_add(incl_vec, src_path);
+		} else {
+			set_add(incl_vec, (char *)yyjson_get_str(val));
+		}
+	}
+	if (sync && yyjson_mut_is_arr(sync_include_paths)) {
+		yyjson_mut_arr_foreach(sync_include_paths, idx, max, val_mut) {
+			char *src_path = string(
+				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
+								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			set_add(incl_vec, src_path);
+			// set_add(incl_vec, (char *)yyjson_mut_get_str(val_mut));
+		}
+	}
 
-	yyjson_mut_val *dep_header_arr =
-		yyjson_val_mut_copy(current_mut_doc, headers);
-	yyjson_mut_val *dep_src_arr = yyjson_val_mut_copy(current_mut_doc, src);
+	// yyjson_mut_val *dep_header_arr =
+	// 	yyjson_val_mut_copy(current_mut_doc, headers);
+	// yyjson_mut_val *dep_src_arr = yyjson_val_mut_copy(current_mut_doc, src);
 
 	if (current_flags != NULL) {
 		yyjson_mut_arr_clear(current_flags);
@@ -257,14 +312,27 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 							   temp_lib_link_arr);
 	}
 
+	// if (current_src != NULL) {
+	yyjson_mut_arr_clear(current_src);
+	for (int i = 0; i < length(src_vec); i++) {
+		yyjson_mut_arr_add_str(current_mut_doc, current_src,
+							   at(char *, src_vec, i));
+	}
+	// }
+	yyjson_mut_arr_clear(current_incl);
+	for (int i = 0; i < length(incl_vec); i++) {
+		yyjson_mut_arr_add_str(current_mut_doc, current_incl,
+							   at(char *, incl_vec, i));
+	}
+
 	if (!sync && !yyjson_mut_obj_get(dependencies, string(repo_name))) {
 		yyjson_mut_val *target_obj = yyjson_mut_obj(current_mut_doc);
 		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "version", version);
-		yyjson_mut_obj_add(target_obj,
-						   yyjson_mut_str(current_mut_doc, "include_paths"),
-						   dep_header_arr);
-		yyjson_mut_obj_add(target_obj, yyjson_mut_str(current_mut_doc, "src"),
-						   dep_src_arr);
+		// yyjson_mut_obj_add(target_obj,
+		// 				   yyjson_mut_str(current_mut_doc, "include_paths"),
+		// 				   dep_header_arr);
+		// yyjson_mut_obj_add(target_obj, yyjson_mut_str(current_mut_doc,
+		// "src"), 				   dep_src_arr);
 
 		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "remote", libURL);
 
@@ -280,6 +348,8 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 			if (yyjson_mut_is_obj(d_val)) {
 				yyjson_mut_obj_remove_str(d_val, "flags");
 				yyjson_mut_obj_remove_str(d_val, "lib_links");
+				yyjson_mut_obj_remove_str(d_val, "src");
+				yyjson_mut_obj_remove_str(d_val, "include_paths");
 			}
 		}
 	}
@@ -290,7 +360,6 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 							   &werr)) {
 		fprintf(stderr, "Write error: %s\n", werr.msg);
 	}
-
 	yyjson_mut_doc_free(current_mut_doc);
 
 	yyjson_val *dep_dependencies = yyjson_obj_get(dep_root, "dependencies");
@@ -299,7 +368,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 		yyjson_val *remote = yyjson_obj_get(val, "remote");
 		if (!set_contains(v, (char *)yyjson_get_str(remote))) {
 			set_add(v, (char *)yyjson_get_str(remote));
-			fetch_library(v, (char *)yyjson_get_str(remote), NULL, NULL, false);
+			printf("Fetching dependencies!\n");
+			fetch_library(v, (char *)yyjson_get_str(remote), NULL, NULL, NULL,
+						  NULL, false);
 		}
 	}
 	vector_free(flag_vec);
