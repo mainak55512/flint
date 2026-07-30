@@ -63,6 +63,11 @@ void get_src_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 				 yyjson_val *deps, String *cwd);
 void get_header_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 					yyjson_val *deps, String *cwd);
+
+void get_stat_lib_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
+					  yyjson_val *deps, String *cwd);
+void get_shared_lib_vec(Arena *str_arena, Vector *source_files,
+						yyjson_val *root, yyjson_val *deps, String *cwd);
 const char *get_filename_without_path(const char *path);
 int cli(int argc, char *argv[], Arena *global_str_arena);
 long long get_file_modified_time(const char *path);

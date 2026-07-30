@@ -214,22 +214,41 @@ String *build_project(Arena *global_str_arena) {
 	idx = 0, max = 0;
 
 	Vector *src_file_arr = vector_init(char *);
+	Vector *stat_file_arr = vector_init(char *);
+	Vector *shared_file_arr = vector_init(char *);
 	get_src_vec(str_arena, src_file_arr, root, dep_arr,
 				get_current_working_dir(str_arena));
+	get_stat_lib_vec(str_arena, stat_file_arr, root, dep_arr,
+					 get_current_working_dir(str_arena));
+	get_shared_lib_vec(str_arena, shared_file_arr, root, dep_arr,
+					   get_current_working_dir(str_arena));
 
 	String *stat_lib = string_from(str_arena, "");
 	String *shared_lib = string_from(str_arena, "");
 
-	if (directory_exists("./static")) {
-		String *static_libs = collect_files(
-			str_arena, string_concat_cstr(str_arena, 2, string(cwd), "/static"),
-			// string_from(str_arena, "./static"),
-			string_from(str_arena, "static"));
-		stat_lib = string_trim(str_arena, static_libs);
-		if (string_len(stat_lib) > 0) {
+	if (length(stat_file_arr) == 0) {
+		if (directory_exists("./static")) {
+			String *static_libs = collect_files(
+				str_arena,
+				string_concat_cstr(str_arena, 2, string(cwd), "/static"),
+				string_from(str_arena, "static"));
+			stat_lib = string_trim(str_arena, static_libs);
+			if (string_len(stat_lib) > 0) {
+				cmd_err = system(string(string_concat_cstr(
+					str_arena, 3, "for f in ", string(stat_lib),
+					"; do (cd ./build/.cache && ar x \"$f\"); done")));
+				if (cmd_err) {
+					fprintf(stderr,
+							"Error encountered while adding static libs\n");
+					goto CLEANUP;
+				}
+			}
+		}
+	} else {
+		for (int i = 0; i < length(stat_file_arr); i++) {
 			cmd_err = system(string(string_concat_cstr(
-				str_arena, 3, "for f in ", string(stat_lib),
-				"; do (cd ./build/.cache && ar x \"$f\"); done")));
+				str_arena, 5, "(cd ./build/.cache && ar x \"", string(cwd), "/",
+				at(char *, stat_file_arr, i), "\")")));
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered while adding static libs\n");
 				goto CLEANUP;
@@ -237,12 +256,25 @@ String *build_project(Arena *global_str_arena) {
 		}
 	}
 
-	if (directory_exists("./shared")) {
-		String *shared_libs = collect_files(
-			str_arena, string_concat_cstr(str_arena, 2, string(cwd), "/shared"),
-			// string_from(str_arena, "./static"),
-			string_from(str_arena, "dyn"));
-		shared_lib = string_trim(str_arena, shared_libs);
+	if (length(shared_file_arr) == 0) {
+		if (directory_exists("./shared")) {
+			String *shared_libs = collect_files(
+				str_arena,
+				string_concat_cstr(str_arena, 2, string(cwd), "/shared"),
+				string_from(str_arena, "dyn"));
+			shared_lib = string_trim(str_arena, shared_libs);
+		}
+	} else {
+		for (int i = 0; i < length(shared_file_arr); i++) {
+			if (string_len(shared_lib) == 0) {
+				shared_lib =
+					string_from(str_arena, at(char *, shared_file_arr, i));
+			} else {
+				shared_lib =
+					string_concat_cstr(str_arena, 3, string(shared_lib), " ",
+									   at(char *, shared_file_arr, i));
+			}
+		}
 	}
 
 	idx = 0, max = 0;
@@ -322,6 +354,8 @@ String *build_project(Arena *global_str_arena) {
 	}
 
 	vector_free(src_file_arr);
+	vector_free(stat_file_arr);
+	vector_free(shared_file_arr);
 
 	String *output = string_concat_cstr(global_str_arena, 2, "./build/",
 										string(project_name));

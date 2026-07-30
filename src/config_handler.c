@@ -19,16 +19,24 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_val *sources = yyjson_mut_arr(doc);
 	yyjson_mut_val *flags = yyjson_mut_arr(doc);
 	yyjson_mut_val *lib_links = yyjson_mut_arr(doc);
+	yyjson_mut_val *static_lib = yyjson_mut_arr(doc);
+	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
 
 	if (isExec) {
 		yyjson_mut_arr_add_str(doc, sources, "src");
 	} else {
 		yyjson_mut_arr_add_str(doc, sources, "lib");
 	}
+
+	yyjson_mut_arr_add_str(doc, static_lib, "static");
+	yyjson_mut_arr_add_str(doc, shared_lib, "shared");
+
 	yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
 	yyjson_mut_obj_add_val(doc, root, "src", sources);
 	yyjson_mut_obj_add_val(doc, root, "flags", flags);
 	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
+	yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
+	yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
 
 	yyjson_mut_arr_add_str(doc, headers, "include");
 	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");

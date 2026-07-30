@@ -32,52 +32,6 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 		ext_2 = string_from(str_arena, ".hpp");
 	}
 
-	// #ifdef _WIN32
-	// 	WIN32_FIND_DATA findData;
-	// 	HANDLE handleFind;
-	// 	String *searchPath;
-
-	// 	// Create search pattern (path\*.*)
-	// 	// snprintf(searchPath, MAX_PATH, "%s\\*.*", string(path));
-	// 	searchPath = string_concat_cstr(str_arena, 2, string(path), "\\*.*");
-
-	// 	handleFind = FindFirstFile(string(searchPath), &findData);
-
-	// 	if (handleFind == INVALID_HANDLE_VALUE) {
-	// 		printf("Unable to open directory: %s\n", path);
-	// 		return;
-	// 	}
-
-	// 	do {
-	// 		if (STR_CMP(findData.cFileName, ".") == 0 ||
-	// 			STR_CMP(findData.cFileName, "..") == 0) {
-	// 			continue;
-	// 		}
-	// 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-	// 			continue;
-	// 		}
-
-	// 		size_t len = strlen(findData.cFileName);
-
-	// 		if ((len > 2 &&
-	// 			 STR_CMP(findData.cFileName + len - 2, string(ext_1)) == 0) ||
-	// 			(len > 4 &&
-	// 			 STR_CMP(findData.cFileName + len - 4, string(ext_2)) == 0)) {
-
-	// 			if (strlen(string(src_files)) > 0) {
-	// 				src_files =
-	// 					string_concat_cstr(str_arena, 2, string(src_files),
-	// sep);
-	// 			}
-
-	// 			src_files =
-	// 				string_concat_cstr(str_arena, 4, string(src_files),
-	// 								   string(path), "\\", findData.cFileName);
-	// 		}
-	// 	} while (FindNextFile(handleFind, &findData) != 0);
-
-	// 	FindClose(handleFind);
-	// #else
 	DIR *dir;
 	struct dirent *entry;
 
@@ -94,25 +48,6 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 			continue;
 		}
 
-		/*
-		if (entry->d_type == DT_DIR) {
-			String *sub_dir_path = string_concat_cstr(
-				str_arena, 3, string(path), "/", entry->d_name);
-
-			String *sub_files = collect_files(str_arena, sub_dir_path, type);
-			if (sub_files != NULL && string_len(sub_files) > 0) {
-				if (string_len(src_files) > 0) {
-					src_files =
-						string_concat_cstr(str_arena, 3, string(src_files), sep,
-										   string(sub_files));
-				} else {
-					src_files = sub_files;
-				}
-			}
-			continue;
-		}
-		*/
-
 		char *dot = strrchr(entry->d_name, '.');
 		if (dot != NULL && (STR_CMP(dot, string(ext_1)) == 0 ||
 							STR_CMP(dot, string(ext_2)) == 0)) {
@@ -127,18 +62,21 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 		}
 	}
 	closedir(dir);
-	// #endif
 	return src_files;
 }
 
 void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 				   yyjson_val *deps, String *cwd, String *file_type) {
-	String *retrieve_type = string_from(str_arena, "");
+	String *retrieve_type = file_type;
 
-	if (STR_CMP(string(file_type), "src") == 0) {
-		retrieve_type = string_clone(str_arena, file_type);
-	} else if (STR_CMP(string(file_type), "header") == 0) {
+	if (STR_CMP(string(file_type), "header") == 0) {
 		retrieve_type = string_from(str_arena, "include_paths");
+	} else if (STR_CMP(string(file_type), "static") == 0) {
+		retrieve_type = string_from(str_arena, "static_lib");
+	} else if (STR_CMP(string(file_type), "dyn") == 0) {
+		retrieve_type = string_from(str_arena, "shared_lib");
+	} else {
+		retrieve_type = string_clone(str_arena, file_type);
 	}
 
 	yyjson_val *src_arr = yyjson_obj_get(root, string(retrieve_type));
@@ -147,6 +85,7 @@ void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 		yyjson_arr_iter_init(src_arr, &iter);
 		yyjson_val *val;
 		while ((val = yyjson_arr_iter_next(&iter))) {
+
 			Vector *src_temp_arr = string_split_lines(
 				str_arena,
 				collect_files(
@@ -163,7 +102,7 @@ void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 		}
 	}
 
-	if (yyjson_is_obj(deps)) {
+	if (yyjson_is_obj(deps) && yyjson_obj_size(deps) != 0) {
 		yyjson_obj_iter iter;
 		yyjson_obj_iter_init(deps, &iter);
 		yyjson_val *key, *dep_obj;
@@ -173,7 +112,7 @@ void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 
 			yyjson_val *dep_src =
 				yyjson_obj_get(dep_obj, string(retrieve_type));
-			if (yyjson_is_arr(dep_src)) {
+			if (yyjson_is_arr(dep_src) && yyjson_arr_size(dep_src) != 0) {
 				yyjson_arr_iter src_iter;
 				yyjson_arr_iter_init(dep_src, &src_iter);
 				yyjson_val *src_val;
@@ -204,10 +143,22 @@ void get_src_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 	get_files_vec(str_arena, source_files, root, deps, cwd,
 				  string_from(str_arena, "src"));
 }
+
 void get_header_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 					yyjson_val *deps, String *cwd) {
 	get_files_vec(str_arena, source_files, root, deps, cwd,
 				  string_from(str_arena, "header"));
+}
+
+void get_stat_lib_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
+					  yyjson_val *deps, String *cwd) {
+	get_files_vec(str_arena, source_files, root, deps, cwd,
+				  string_from(str_arena, "static"));
+}
+void get_shared_lib_vec(Arena *str_arena, Vector *source_files,
+						yyjson_val *root, yyjson_val *deps, String *cwd) {
+	get_files_vec(str_arena, source_files, root, deps, cwd,
+				  string_from(str_arena, "dyn"));
 }
 
 long long get_file_modified_time(const char *path) {
