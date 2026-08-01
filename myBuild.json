@@ -1,54 +1,47 @@
 {
     "project_name": "myBuild",
     "project_language": "c",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "compiler_path": "/usr/bin/clang-18",
     "executable": true,
+    "flags":[        
+          "-O3",
+          "-DNDEBUG",
+          "-fstack-protector-strong",
+          "-D_FORTIFY_SOURCE=2",
+          "-Wno-unused-result"
+    ],
     "include_paths": [
-        "include"
+        "include",
+        "deps/CString/include",
+        "deps/arena/include",
+        "deps/container/include",
+        "deps/yyjson/include"
     ],
     "src": [
-        "src"
+        "src",
+        "deps/CString/lib",
+        "deps/arena/lib",
+        "deps/container/lib",
+        "deps/yyjson/src"
     ],
+    "static_lib": ["static"],
+    "shared_lib": ["shared"],
     "dependencies": {
         "arena": {
             "version": "0.1.1",
-            "include_paths": [
-                "include"
-            ],
-            "src": [
-                "lib"
-            ],
             "remote": "https://github.com/mainak55512/arena"
         },
         "CString": {
             "version": "0.1.1",
-            "include_paths": [
-                "include"
-            ],
-            "src": [
-                "lib"
-            ],
             "remote": "https://github.com/mainak55512/CString"
         },
         "container": {
             "version": "0.1.1",
-            "include_paths": [
-                "include"
-            ],
-            "src": [
-                "lib"
-            ],
             "remote": "https://github.com/mainak55512/container"
         },
         "yyjson": {
             "version": "0.12.0",
-            "include_paths": [
-                "include"
-            ],
-            "src": [
-                "src"
-            ],
             "remote": "https://github.com/ibireme/yyjson"
         }
     }

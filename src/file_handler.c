@@ -37,31 +37,34 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 
 	dir = opendir(string(path));
 
-	if (dir == NULL) {
-		perror("Unable to open directory");
-		return NULL;
-	}
+	// if (dir == NULL) {
+	// 	perror("Unable to open directory");
+	// 	return NULL;
+	// }
 
-	while ((entry = readdir(dir)) != NULL) {
-		if (STR_CMP(entry->d_name, ".") == 0 ||
-			STR_CMP(entry->d_name, "..") == 0) {
-			continue;
-		}
-
-		char *dot = strrchr(entry->d_name, '.');
-		if (dot != NULL && (STR_CMP(dot, string(ext_1)) == 0 ||
-							STR_CMP(dot, string(ext_2)) == 0)) {
-
-			if (string_len(src_files) > 0) {
-				src_files =
-					string_concat_cstr(str_arena, 2, string(src_files), sep);
+	if (dir != NULL) {
+		while ((entry = readdir(dir)) != NULL) {
+			if (STR_CMP(entry->d_name, ".") == 0 ||
+				STR_CMP(entry->d_name, "..") == 0) {
+				continue;
 			}
 
-			src_files = string_concat_cstr(str_arena, 4, string(src_files),
-										   string(path), "/", entry->d_name);
+			char *dot = strrchr(entry->d_name, '.');
+			if (dot != NULL && (STR_CMP(dot, string(ext_1)) == 0 ||
+								STR_CMP(dot, string(ext_2)) == 0)) {
+
+				if (string_len(src_files) > 0) {
+					src_files = string_concat_cstr(str_arena, 2,
+												   string(src_files), sep);
+				}
+
+				src_files =
+					string_concat_cstr(str_arena, 4, string(src_files),
+									   string(path), "/", entry->d_name);
+			}
 		}
+		closedir(dir);
 	}
-	closedir(dir);
 	return src_files;
 }
 

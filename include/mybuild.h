@@ -42,6 +42,7 @@ String *build_project(Arena *global_str_arena);
 void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 				   yyjson_mut_val *sync_include_paths,
 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
+				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
 				   bool sync);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);

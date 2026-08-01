@@ -1,8 +1,9 @@
 # myBuild
 
-**Disclaimer: This project is in an early alpha stage and is not production-ready. Use with caution. This is only available for Linux for now.**
+**Disclaimer: This project is in BETA stage and only available for Linux, use with caution.**
 
 myBuild is an experimental build system and package manager for C/C++ projects. It aims to simplify the development workflow by managing dependencies directly through Git and automating the compilation process via a single JSON configuration file.
+myBuild is compatible with GCC & Clang compilers.
 
 **NOTE:** 
 
@@ -26,7 +27,7 @@ myBuild expects a specific directory layout to function correctly:
 Currently, myBuild uses a "manifest-first" approach:
 
 1. **Git Integration**: When a library is added, myBuild clones the repository into the `deps/` directory.
-2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. myBuild reads this file to understand which directories to include and compile.
+2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. myBuild reads this file to understand which directories to include and compile. EDIT: Libraries can be added through recipes now (check [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)).
 3. **Compilation**: The tool aggregates all source files and include paths from the main project and all dependencies to trigger the local compiler.
 
 ## myBuild.json Structure
@@ -45,8 +46,6 @@ Currently, myBuild uses a "manifest-first" approach:
     "dependencies": {
         "example_lib": {
             "version": "1.0.0",
-            "include_paths": ["include"],
-            "src": ["lib"],
             "remote": "https://github.com/user/example_lib"
         }
     }
@@ -60,7 +59,7 @@ As this is an early development prototype, please be aware of the following:
 
 * ~~**No Build Flags**: Custom compiler flags (e.g., -O3, -Wall) are not yet supported.~~
 * **Naming Conflicts**: There is currently no resolution logic for dependencies that share the same directory or project names.
-* **Strict Compatibility**: Only repositories containing a `myBuild.json` file can be added as dependencies at this time.
+* ~~**Strict Compatibility**: Only repositories containing a `myBuild.json` file can be added as dependencies at this time.~~
 * ~~**No Incremental Builds**: The system currently performs full builds.~~
 
 ## Build

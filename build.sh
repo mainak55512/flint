@@ -29,7 +29,6 @@ echo "* Compiling myBuild (Release) using $COMPILER..."
 
 $COMPILER \
   -O3 \
-  -s \
   -DNDEBUG \
   -fstack-protector-strong \
   -D_FORTIFY_SOURCE=2 \
