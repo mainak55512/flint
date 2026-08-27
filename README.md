@@ -31,7 +31,7 @@ myBuild expects a specific directory layout to function correctly:
 Currently, Flint uses a "manifest-first" approach:
 
 1. **Git Integration**: When a library is added, myBuild clones the repository into the `deps/` directory.
-2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. Flint reads this file to understand which directories to include and compile. EDIT: Libraries can be added through recipes now (check [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)).
+2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. Flint reads this file to understand which directories to include and compile. EDIT: Libraries can be added through recipes now (check [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)).
 3. **Compilation**: The tool aggregates all source files and include paths from the main project and all dependencies to trigger the local compiler.
 
 ## myBuild.json Structure
