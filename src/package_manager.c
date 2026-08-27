@@ -1,5 +1,4 @@
-#include "cstring.h"
-#include <mybuild.h>
+#include <flint.h>
 
 void update_package_file(yyjson_mut_doc *package) {
 	yyjson_write_err werr;

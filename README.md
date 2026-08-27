@@ -1,15 +1,19 @@
-# myBuild
+<div align="center">
+  <img src="./assets/flint.png" alt="Flint Logo">
+</div>
+
+# Flint
 
 **Disclaimer: This project is in BETA stage and only available for Linux, use with caution.**
 
-myBuild is an experimental build system and package manager for C/C++ projects. It aims to simplify the development workflow by managing dependencies directly through Git and automating the compilation process via a single JSON configuration file.
-myBuild is compatible with GCC & Clang compilers.
+Flint is an experimental build system and package manager for C/C++ projects. It aims to simplify the development workflow by managing dependencies directly through Git and automating the compilation process via a single JSON configuration file.
+Flint is compatible with GCC & Clang compilers.
 
 **NOTE:** 
 
-CLI Docs available here: [myBuild](https://mainak55512.github.io/myBuild-cookbook/)
+CLI Docs available here: [Flint](https://mainak55512.github.io/flint-cherts/)
 
-Recipes of the dependencies are/will be updated here: [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)
+Recipes of the dependencies are/will be updated here: [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)
 
 ## Project Structure
 
@@ -24,10 +28,10 @@ myBuild expects a specific directory layout to function correctly:
 
 ## How it Works
 
-Currently, myBuild uses a "manifest-first" approach:
+Currently, Flint uses a "manifest-first" approach:
 
 1. **Git Integration**: When a library is added, myBuild clones the repository into the `deps/` directory.
-2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. myBuild reads this file to understand which directories to include and compile. EDIT: Libraries can be added through recipes now (check [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)).
+2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `myBuild.json` file. Flint reads this file to understand which directories to include and compile. EDIT: Libraries can be added through recipes now (check [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)).
 3. **Compilation**: The tool aggregates all source files and include paths from the main project and all dependencies to trigger the local compiler.
 
 ## myBuild.json Structure
@@ -65,8 +69,8 @@ As this is an early development prototype, please be aware of the following:
 ## Build
 Clone the repo
 ```bash
-git clone https://github.com/mainak55512/myBuild
-cd myBuild
+git clone https://github.com/mainak55512/flint
+cd flint
 chmod +x ./build.sh
 ./build.sh
 ```
@@ -76,7 +80,7 @@ chmod +x ./build.sh
 ### Initialize a Project
 
 ```bash
-myBuild init
+flint init
 
 ```
 
@@ -85,23 +89,23 @@ myBuild init
 (The remote repository must contain a `myBuild.json` file)
 
 ```bash
-myBuild add <git_remote_url>
+flint add <git_remote_url>
 
 ```
 or
-Add the recipe in the `dependencies` section in myBuild.json and run
+Add the cherts composition in the `dependencies` section in myBuild.json and run
 ```bash
-myBuild sync
+flint sync
 ```
-**N.B.** recipes are/will be available in [myBuild Cookbook](https://mainak55512.github.io/myBuild-cookbook/cookbook/)
+**N.B.** compositions are/will be available in [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)
 
 ### Build
 
 ```bash
-myBuild build
+flint build
 
 ```
 or directly run with
 ```bash
-myBuild run
+flint run
 ```

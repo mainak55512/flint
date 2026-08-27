@@ -1,6 +1,4 @@
-#include "container.h"
-#include "yyjson.h"
-#include <mybuild.h>
+#include <flint.h>
 
 void create_my_build_config(char *config_file_path, char *project_name,
 							char *project_lang, char *compiler_path,

@@ -1,7 +1,7 @@
 {
-    "project_name": "myBuild",
+    "project_name": "flint",
     "project_language": "c",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "compiler_path": "/usr/bin/clang-18",
     "executable": true,
     "flags":[        

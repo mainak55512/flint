@@ -1,9 +1,15 @@
-#include <mybuild.h>
+#include <flint.h>
+
+void print_version_details() {
+	printf("Version: 0.3.0\n\n");
+	printf("Usage: myBuild <command> [args]\n");
+	printf("Commands: init, add, build, add-lib, add-flag, run, gen, "
+		   "sync\n");
+}
 
 int cli(int argc, char *argv[], Arena *global_str_arena) {
 	if (argc < 2) {
-		printf("Usage: myBuild <command> [args]\n");
-		printf("Commands: init, add <url>, build\n");
+		print_version_details();
 		return 1;
 	}
 	char *opt = argv[1];
@@ -33,6 +39,7 @@ int cli(int argc, char *argv[], Arena *global_str_arena) {
 		return 0;
 	} else {
 		printf("Unknown command: %s\n", opt);
+		print_version_details();
 		return 1;
 	}
 }

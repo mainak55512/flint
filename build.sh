@@ -25,7 +25,7 @@ else
     exit 1
 fi
 
-echo "* Compiling myBuild (Release) using $COMPILER..."
+echo "* Compiling Flint (Release) using $COMPILER..."
 
 $COMPILER \
   -O3 \
@@ -49,25 +49,25 @@ $COMPILER \
   ./src/package_manager.c \
   ./src/utils.c \
   ./src/project_handler.c \
-  -o myBuild
+  -o flint
 
-echo "* Build successful! Executable created at ./myBuild"
+echo "* Build successful! Executable created at ./flint"
 echo "--------------------------------------------------------"
 
-read -p "? Do you want to install 'myBuild' globally so it's available in your PATH? (y/N): " choice
+read -p "? Do you want to install 'flint' globally so it's available in your PATH? (y/N): " choice
 
 case "$choice" in 
     [yY][eE][sS]|[yY])
         echo "* Installing to /usr/local/bin..."
-        BINARY_PATH="$(pwd)/myBuild"
+        BINARY_PATH="$(pwd)/flint"
         
-        if sudo ln -sf "$BINARY_PATH" /usr/local/bin/myBuild; then
-            echo "* Done! You can now run 'myBuild' from anywhere in your terminal."
+        if sudo ln -sf "$BINARY_PATH" /usr/local/bin/flint; then
+            echo "* Done! You can now run 'flint' from anywhere in your terminal."
         else
             echo "! Failed to create symlink. Installation aborted."
         fi
         ;;
     *)
-        echo "* Skipped global installation. Executable remains at ./myBuild"
+        echo "* Skipped global installation. Executable remains at ./flint"
         ;;
 esac
