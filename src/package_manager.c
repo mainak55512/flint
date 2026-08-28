@@ -9,7 +9,7 @@ void update_package_file(yyjson_mut_doc *package) {
 }
 
 void sync_dependency() {
-	char *myBuildConfigFile = "myBuild.json";
+	char *myBuildConfigFile = "composition.json";
 	char *packageFile = "deps/.package";
 	yyjson_read_err err;
 	yyjson_doc *buildConf = yyjson_read_file(myBuildConfigFile, 0, NULL, &err);
@@ -106,7 +106,8 @@ void sync_dependency() {
 
 void add_library(char *libURL) {
 	yyjson_read_err err;
-	yyjson_doc *current_doc = yyjson_read_file("./myBuild.json", 0, NULL, &err);
+	yyjson_doc *current_doc =
+		yyjson_read_file("./composition.json", 0, NULL, &err);
 	yyjson_val *current_root = yyjson_doc_get_root(current_doc);
 	yyjson_val *dependencies = yyjson_obj_get(current_root, "dependencies");
 	Vector *set = vector_init(char *);
@@ -165,20 +166,21 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	repo_name = clone_lib(str_arena, libURL);
 
 	String *config_path = string_concat_cstr(
-		str_arena, 3, "./deps/", string(repo_name), "/myBuild.json");
+		str_arena, 3, "./deps/", string(repo_name), "/composition.json");
 	if (!sync && !is_mybuild_config_present(string(config_path))) {
 		arena_free(&str_arena);
 		return;
 	}
-	yyjson_doc *current_doc = yyjson_read_file("./myBuild.json", 0, NULL, &err);
+	yyjson_doc *current_doc =
+		yyjson_read_file("./composition.json", 0, NULL, &err);
 	yyjson_mut_doc *current_mut_doc = yyjson_doc_mut_copy(current_doc, NULL);
 
 	yyjson_mut_val *current_root = yyjson_mut_doc_get_root(current_mut_doc);
 	yyjson_mut_val *dependencies =
 		yyjson_mut_obj_get(current_root, "dependencies");
 
-	dep_mybuild_path = string_concat_cstr(str_arena, 3, "./deps/",
-										  string(repo_name), "/myBuild.json");
+	dep_mybuild_path = string_concat_cstr(
+		str_arena, 3, "./deps/", string(repo_name), "/composition.json");
 
 	// printf("Dep build path: %s\n", string(dep_mybuild_path));
 	yyjson_doc *dep_doc =
@@ -438,7 +440,7 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 
 	yyjson_write_err werr;
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./myBuild.json", current_mut_doc, flg, NULL,
+	if (!yyjson_mut_write_file("./composition.json", current_mut_doc, flg, NULL,
 							   &werr)) {
 		fprintf(stderr, "Write error: %s\n", werr.msg);
 	}

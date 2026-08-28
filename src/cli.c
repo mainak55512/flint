@@ -2,7 +2,7 @@
 
 void print_version_details() {
 	printf("Version: 0.3.0\n\n");
-	printf("Usage: myBuild <command> [args]\n");
+	printf("Usage: flint <command> [args]\n");
 	printf("Commands: init, add, build, add-lib, add-flag, run, gen, "
 		   "sync\n");
 }

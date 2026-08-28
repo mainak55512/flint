@@ -55,7 +55,7 @@ CLEANUP:
 
 int generate_compile_commands() {
 	Arena *str_arena = arena_init(1024);
-	char *input_file = "myBuild.json";
+	char *input_file = "composition.json";
 	char *output_file = "compile_commands.json";
 	int success = 1;
 
@@ -253,7 +253,7 @@ void _add_local(int lib_count, char **lib_link, char *element) {
 
 	Arena *arena = arena_init(1024);
 
-	char *input_file = "myBuild.json";
+	char *input_file = "composition.json";
 
 	char *prefix = "-";
 	if (STR_CMP(element, "lib_links") == 0) {
@@ -295,7 +295,8 @@ void _add_local(int lib_count, char **lib_link, char *element) {
 
 	yyjson_write_err werr;
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./myBuild.json", mut_doc, flg, NULL, &werr)) {
+	if (!yyjson_mut_write_file("./composition.json", mut_doc, flg, NULL,
+							   &werr)) {
 		fprintf(stderr, "Write error: %s\n", werr.msg);
 	}
 

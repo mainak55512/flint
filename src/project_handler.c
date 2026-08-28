@@ -11,8 +11,8 @@ int init_project() {
 	isExec = true;
 	ret = 0;
 
-	if (file_exists("./myBuild.json")) {
-		printf("myBuild already initiated!");
+	if (file_exists("./composition.json")) {
+		printf("Flint Chert already initiated!");
 		return ret;
 	}
 
@@ -111,8 +111,8 @@ int init_project() {
 			ret = 1;
 			goto CLEANUP;
 		}
-		create_my_build_config("./myBuild.json", string(project_name), "cpp",
-							   string(compiler_path), isExec);
+		create_my_build_config("./composition.json", string(project_name),
+							   "cpp", string(compiler_path), isExec);
 		break;
 	}
 	default: {
@@ -137,7 +137,7 @@ int init_project() {
 			ret = 1;
 			goto CLEANUP;
 		}
-		create_my_build_config("./myBuild.json", string(project_name), "c",
+		create_my_build_config("./composition.json", string(project_name), "c",
 							   string(compiler_path), isExec);
 		break;
 	}
@@ -176,7 +176,7 @@ String *build_project(Arena *global_str_arena) {
 
 	String *cwd = get_current_working_dir(str_arena);
 	yyjson_read_err err;
-	yyjson_doc *doc = yyjson_read_file("./myBuild.json", 0, NULL, &err);
+	yyjson_doc *doc = yyjson_read_file("./composition.json", 0, NULL, &err);
 
 	if (!doc) {
 		fprintf(stderr, "Read error: %s\n", err.msg);
