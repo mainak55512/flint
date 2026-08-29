@@ -13,7 +13,7 @@ Flint is compatible with GCC & Clang compilers.
 
 CLI Docs available here: [Flint](https://mainak55512.github.io/flint-cherts/)
 
-Recipes of the dependencies are/will be updated here: [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)
+Compositions of the Cherts(dependencies) are/will be updated here: [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)
 
 ## Project Structure
 
@@ -30,7 +30,7 @@ Flint expects a specific directory layout to function correctly:
 
 Currently, Flint uses a "manifest-first" approach:
 
-1. **Git Integration**: When a library is added, myBuild clones the repository into the `deps/` directory.
+1. **Git Integration**: When a library is added, flint clones the repository into the `deps/` directory.
 2. **Strict Manifest Requirement**: For a dependency to be compatible, it **must** contain its own `composition.json` file. Flint reads this file to understand which directories to include and compile. EDIT: Libraries can be added through chert compositions now (check [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)).
 3. **Compilation**: The tool aggregates all source files and include paths from the main project and all dependencies to trigger the local compiler.
 
