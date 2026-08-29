@@ -15,6 +15,18 @@ CLI Docs available here: [Flint](https://mainak55512.github.io/flint-cherts/)
 
 Compositions of the Cherts(dependencies) are/will be updated here: [Flint Cherts](https://mainak55512.github.io/flint-cherts/compositions/)
 
+## Installation
+**Prerequisits:**
+
+- GCC/Clang compiler chain
+- GIT
+
+Run the following command in terminal:
+
+```bash
+curl -fsSL -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/mainak55512/flint/contents/build.sh | bash
+```
+
 ## Project Structure
 
 Flint expects a specific directory layout to function correctly:
@@ -65,18 +77,6 @@ As this is an early development prototype, please be aware of the following:
 * **Naming Conflicts**: There is currently no resolution logic for dependencies that share the same directory or project names.
 * ~~**Strict Compatibility**: Only repositories containing a `composition.json` file can be added as dependencies at this time.~~
 * ~~**No Incremental Builds**: The system currently performs full builds.~~
-
-## Installation
-**Prerequisits:**
-
-- GCC/Clang compiler chain
-- GIT
-
-Run the following command in terminal:
-
-```bash
-curl -fsSL -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/mainak55512/flint/contents/build.sh | bash
-```
 
 ## Usage
 
