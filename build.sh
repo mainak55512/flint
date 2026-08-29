@@ -4,6 +4,8 @@ set -e
 
 REPO_URL="https://github.com/mainak55512/flint.git"
 
+ORIGINAL_DIR="$(pwd)"
+
 echo "* Checking dependencies..."
 
 if ! command -v git >/dev/null 2>&1; then
@@ -86,5 +88,7 @@ case "$choice" in
         ;;
     *)
         echo "* Global installation skipped. Executable cleanup completed."
+        cp flint "$ORIGINAL_DIR/flint"
+        echo "* Executable saved to $ORIGINAL_DIR/flint"
         ;;
 esac
