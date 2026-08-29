@@ -69,9 +69,8 @@ As this is an early development prototype, please be aware of the following:
 ## Installation
 **Prerequisits:**
 
-GCC/Clang compiler chain
-
-GIT
+- GCC/Clang compiler chain
+- GIT
 
 Run the following command in terminal:
 
