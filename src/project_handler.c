@@ -1,5 +1,30 @@
 #include <flint.h>
 
+int check_available_archiever(String *cmd) {
+	char check_cmd[128];
+
+#if defined(_WIN32)
+	snprintf(check_cmd, sizeof(check_cmd), "where %s >nul 2>&1", string(cmd));
+#else
+	snprintf(check_cmd, sizeof(check_cmd), "command -v %s >/dev/null 2>&1",
+			 string(cmd));
+#endif
+
+	return (system(check_cmd) == 0);
+}
+
+String *get_archiever(Arena *arena) {
+	String *llvm_ar = string_from(arena, "llvm-ar");
+	String *ar = string_from(arena, "ar");
+
+	if (check_available_archiever(llvm_ar)) {
+		return llvm_ar;
+	} else if (check_available_archiever(ar)) {
+		return ar;
+	}
+	return string_from(arena, "");
+}
+
 int init_project() {
 	struct STAT info;
 	Arena *str_arena;
@@ -240,6 +265,9 @@ String *build_project(Arena *global_str_arena) {
 				if (cmd_err) {
 					fprintf(stderr,
 							"Error encountered while adding static libs\n");
+					vector_free(src_file_arr);
+					vector_free(stat_file_arr);
+					vector_free(shared_file_arr);
 					goto CLEANUP;
 				}
 			}
@@ -251,6 +279,9 @@ String *build_project(Arena *global_str_arena) {
 				at(char *, stat_file_arr, i), "\")")));
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered while adding static libs\n");
+				vector_free(src_file_arr);
+				vector_free(stat_file_arr);
+				vector_free(shared_file_arr);
 				goto CLEANUP;
 			}
 		}
@@ -316,6 +347,9 @@ String *build_project(Arena *global_str_arena) {
 
 	if (create_append_err) {
 		fprintf(stderr, "Error encountered while generating `compile.rsp`\n");
+		vector_free(src_file_arr);
+		vector_free(stat_file_arr);
+		vector_free(shared_file_arr);
 		goto CLEANUP;
 	}
 
@@ -346,6 +380,9 @@ String *build_project(Arena *global_str_arena) {
 				at(char *, src_file_arr, i), " -o ", string(obj_file))));
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered at compilation\n");
+				vector_free(src_file_arr);
+				vector_free(stat_file_arr);
+				vector_free(shared_file_arr);
 				goto CLEANUP;
 			}
 
@@ -372,6 +409,11 @@ String *build_project(Arena *global_str_arena) {
 		}
 		printf("[✓] Executable ganerated\n");
 	} else {
+		String *archiever = get_archiever(str_arena);
+		if (STR_CMP(string(archiever), "") == 0) {
+			printf("[x] No archiever found!\n");
+			goto CLEANUP;
+		}
 		Vector *header_vec = vector_init(char *);
 
 		get_header_vec(str_arena, header_vec, root, dep_arr, cwd);
@@ -387,6 +429,7 @@ String *build_project(Arena *global_str_arena) {
 				fprintf(
 					stderr,
 					"Error encountered while generating library directories\n");
+				vector_free(header_vec);
 				goto CLEANUP;
 			}
 		}
@@ -399,14 +442,16 @@ String *build_project(Arena *global_str_arena) {
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating shared library\n");
+			vector_free(header_vec);
 			goto CLEANUP;
 		}
-		cmd_err = system(string(
-			string_concat_cstr(str_arena, 3, "ar rcs ./build/static/lib/lib",
-							   string(project_name), ".a ./build/.cache/*.o")));
+		cmd_err = system(string(string_concat_cstr(
+			str_arena, 4, string(archiever), " rcs ./build/static/lib/lib",
+			string(project_name), ".a ./build/.cache/*.o")));
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating static library\n");
+			vector_free(header_vec);
 			goto CLEANUP;
 		}
 
@@ -422,6 +467,7 @@ String *build_project(Arena *global_str_arena) {
 			copy_err = copy_file(src_path, dest_path_2);
 			if (copy_err) {
 				fprintf(stderr, "Error encountered while copying headers\n");
+				vector_free(header_vec);
 				goto CLEANUP;
 			}
 		}
