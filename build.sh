@@ -2,7 +2,15 @@
 
 set -e
 
-echo "* Checking for available compilers..."
+REPO_URL="https://github.com/mainak55512/flint.git"
+
+echo "* Checking dependencies..."
+
+if ! command -v git >/dev/null 2>&1; then
+    echo "! Error: 'git' is not installed or not found in your PATH." >&2
+    exit 1
+fi
+
 HAS_GCC=0
 HAS_CLANG=0
 
@@ -24,6 +32,17 @@ else
     echo "! Error: Neither gcc nor clang was found in your PATH." >&2
     exit 1
 fi
+
+TEMP_DIR=$(mktemp -d)
+
+cleanup() {
+    rm -rf "$TEMP_DIR"
+}
+trap cleanup EXIT
+
+echo "* Cloning Flint repository..."
+git clone --depth 1 "$REPO_URL" "$TEMP_DIR"
+cd "$TEMP_DIR"
 
 echo "* Compiling Flint (Release) using $COMPILER..."
 
@@ -51,23 +70,21 @@ $COMPILER \
   ./src/project_handler.c \
   -o flint
 
-echo "* Build successful! Executable created at ./flint"
+echo "* Build successful!"
 echo "--------------------------------------------------------"
 
-read -p "? Do you want to install 'flint' globally so it's available in your PATH? (y/N): " choice
+read -p "? Do you want to install 'flint' globally to /usr/local/bin? (y/N): " choice </dev/tty
 
 case "$choice" in 
     [yY][eE][sS]|[yY])
         echo "* Installing to /usr/local/bin..."
-        BINARY_PATH="$(pwd)/flint"
-        
-        if sudo ln -sf "$BINARY_PATH" /usr/local/bin/flint; then
+        if sudo cp flint /usr/local/bin/flint && sudo chmod +x /usr/local/bin/flint; then
             echo "* Done! You can now run 'flint' from anywhere in your terminal."
         else
-            echo "! Failed to create symlink. Installation aborted."
+            echo "! Failed to install executable."
         fi
         ;;
     *)
-        echo "* Skipped global installation. Executable remains at ./flint"
+        echo "* Global installation skipped. Executable cleanup completed."
         ;;
 esac
