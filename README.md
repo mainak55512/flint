@@ -66,13 +66,17 @@ As this is an early development prototype, please be aware of the following:
 * ~~**Strict Compatibility**: Only repositories containing a `composition.json` file can be added as dependencies at this time.~~
 * ~~**No Incremental Builds**: The system currently performs full builds.~~
 
-## Build
-Clone the repo
+## Installation
+**Prerequisits:**
+
+GCC/Clang compiler chain
+
+GIT
+
+Run the following command in terminal:
+
 ```bash
-git clone https://github.com/mainak55512/flint
-cd flint
-chmod +x ./build.sh
-./build.sh
+curl -fsSL -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/mainak55512/flint/contents/build.sh | bash
 ```
 
 ## Usage
