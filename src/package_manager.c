@@ -1,3 +1,4 @@
+#include "cstring.h"
 #include <flint.h>
 
 void update_package_file(yyjson_mut_doc *package) {
@@ -143,6 +144,7 @@ void add_library(char *libURL) {
 	vector_free(set);
 }
 
+/*
 String *clone_lib(Arena *arena, char *libURL) {
 	String *repo_name = string_from(arena, get_repo_name(arena, libURL));
 	printf("Installing %s...\n", string(repo_name));
@@ -151,6 +153,38 @@ String *clone_lib(Arena *arena, char *libURL) {
 	system(string(command));
 	printf("Done!\n");
 	return repo_name;
+}
+*/
+
+String *clone_lib(Arena *arena, char *libURL) {
+	// @latest will work for now, will change it later
+	char *modified_url_temp =
+		string(string_concat_cstr(arena, 2, libURL, "@latest"));
+	char *version_number = get_version_number(arena, modified_url_temp);
+	char *url = get_modified_url(arena, modified_url_temp);
+	char *repo_name = get_repo_name(arena, url);
+	char *target_dir =
+		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+	printf("Installing %s...\n", repo_name);
+	String *command;
+	if (STR_CMP(version_number, "latest") == 0) {
+		command = string_concat_cstr(arena, 4, "git clone --depth 1 --quiet ",
+									 url, " ", target_dir);
+	} else {
+		command = string_concat_cstr(arena, 6,
+									 "git clone --depth 1 --quiet --branch ",
+									 version_number, " ", url, " ", target_dir);
+	}
+
+	if (system(string(command)) >> 8 == 128) {
+		return string_from(arena, "");
+	}
+
+	printf("Library: %s\n", repo_name);
+	printf("Version: %s\n", version_number);
+	printf("Hash: %s\n", get_lib_hash(arena, target_dir));
+	printf("Done!\n");
+	return string_from(arena, repo_name);
 }
 
 void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
