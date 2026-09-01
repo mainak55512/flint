@@ -157,9 +157,9 @@ String *clone_lib(Arena *arena, char *libURL) {
 */
 
 String *clone_lib(Arena *arena, char *libURL) {
-	// @latest will work for now, will change it later
+	// @unknown will work for now, will change it later
 	char *modified_url_temp =
-		string(string_concat_cstr(arena, 2, libURL, "@latest"));
+		string(string_concat_cstr(arena, 2, libURL, "@unknown"));
 	char *version_number = get_version_number(arena, modified_url_temp);
 	char *url = get_modified_url(arena, modified_url_temp);
 	char *repo_name = get_repo_name(arena, url);
@@ -167,7 +167,7 @@ String *clone_lib(Arena *arena, char *libURL) {
 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
 	printf("Installing %s...\n", repo_name);
 	String *command;
-	if (STR_CMP(version_number, "latest") == 0) {
+	if (STR_CMP(version_number, "unknown") == 0) {
 		command = string_concat_cstr(arena, 4, "git clone --depth 1 --quiet ",
 									 url, " ", target_dir);
 	} else {
@@ -184,6 +184,35 @@ String *clone_lib(Arena *arena, char *libURL) {
 	printf("Version: %s\n", version_number);
 	printf("Hash: %s\n", get_lib_hash(arena, target_dir));
 	printf("Done!\n");
+	return string_from(arena, repo_name);
+}
+
+String *clone_lib_hashed(Arena *arena, const char *libURL,
+						 const char *ref_hash) {
+	char *repo_name = get_repo_name(arena, libURL);
+	char *target_dir =
+		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+	char *sink_path = ">/dev/null 2>&1";
+	char *command = string(string_concat_cstr(
+		arena, 24, "mkdir -p ", target_dir, " ", sink_path, " && git -C ",
+		target_dir, " init ", sink_path, " && git -C ", target_dir,
+		" remote add origin ", libURL, " ", sink_path, " && git -C ",
+		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
+		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
+	if (system(command) >> 8 == 128) {
+		return string_from(arena, "");
+	}
+	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
+
+	printf("Library: %s\n", repo_name);
+	if (STR_CMP(tag, "") == 0) {
+		printf("Version: unknown\n");
+	} else {
+		printf("Version: %s\n", tag);
+	}
+	printf("Hash: %s\n", ref_hash);
+	printf("Done!\n");
+
 	return string_from(arena, repo_name);
 }
 

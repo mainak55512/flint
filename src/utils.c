@@ -185,6 +185,40 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 	return hash;
 }
 
+char *arena_strdup(Arena *arena, const char *str) {
+	if (!str)
+		return NULL;
+	size_t len = strlen(str);
+	char *copy = (char *)arena_alloc(arena, len + 1);
+	if (copy) {
+		memcpy(copy, str, len);
+		copy[len] = '\0';
+	}
+	return copy;
+}
+
+char *get_tag_from_hash(Arena *arena, const char *target_dir,
+						const char *ref_hash) {
+	char buffer[128];
+	char *sink_path = ">/dev/null 2>&1";
+	char *cmd = string(string_concat_cstr(arena, 4, "git -C ", target_dir,
+										  "  describe --tags --exact-match ",
+										  ref_hash));
+	FILE *fp = popen(cmd, "r");
+	if (fp == NULL) {
+		perror("Failed to run git command");
+		return "";
+	}
+
+	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		buffer[strcspn(buffer, "\r\n")] = '\0';
+
+		char *git_tag = arena_strdup(arena, buffer);
+		return git_tag;
+	}
+	return "";
+}
+
 bool set_contains(Vector *v, char *elem) {
 
 	for (int i = 0; i < length(v); i++) {

@@ -60,6 +60,11 @@ char *get_repo_name(Arena *arena, const char *git_url);
 char *get_version_number(Arena *arena, const char *git_url);
 char *get_modified_url(Arena *arena, const char *git_url);
 char *get_lib_hash(Arena *arena, char *target_dir);
+char *arena_strdup(Arena *arena, const char *str);
+char *get_tag_from_hash(Arena *arena, const char *target_dir,
+						const char *ref_hash);
+String *clone_lib_hashed(Arena *arena, const char *libURL,
+						 const char *ref_hash);
 void add_library(char *libURL);
 void run_project(Arena *global_str_arena);
 void sync_dependency();
