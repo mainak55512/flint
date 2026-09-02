@@ -32,6 +32,12 @@
 
 #define BUFFER_SIZE 4096
 
+typedef struct {
+	char *repo_name;
+	char *version;
+	char *hash;
+} LibDetails;
+
 int create_append_file(char *file_path, char *content);
 void create_my_build_config(char *config_file_path, char *project_name,
 							char *project_lang, char *compiler_path,
@@ -46,7 +52,7 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 				   bool sync);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);
-String *clone_lib(Arena *arena, char *libURL);
+LibDetails *clone_lib(Arena *arena, char *libURL);
 bool is_mybuild_config_present(char *filename);
 int init_project();
 String *collect_src_files(Arena *str_arena, String *path);
