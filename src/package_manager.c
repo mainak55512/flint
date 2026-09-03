@@ -180,6 +180,9 @@ LibDetails *clone_lib(Arena *arena, char *libURL) {
 	}
 
 	if (system(string(command)) >> 8 == 128) {
+		if (directory_exists(target_dir)) {
+			remove_directory(arena, target_dir);
+		}
 		return NULL;
 	}
 
@@ -192,11 +195,16 @@ LibDetails *clone_lib(Arena *arena, char *libURL) {
 	printf("Version: %s\n", lib_details->version);
 	printf("Hash: %s\n", lib_details->hash);
 	printf("Done!\n");
+
+	remove_directory(arena,
+					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
 	return lib_details;
 }
 
-String *clone_lib_hashed(Arena *arena, const char *libURL,
-						 const char *ref_hash) {
+LibDetails *clone_lib_hashed(Arena *arena, const char *libURL,
+							 const char *ref_hash) {
+	LibDetails *lib_details =
+		(LibDetails *)arena_alloc(arena, sizeof(LibDetails));
 	char *repo_name = get_repo_name(arena, libURL);
 	char *target_dir =
 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
@@ -208,20 +216,31 @@ String *clone_lib_hashed(Arena *arena, const char *libURL,
 		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
 		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
 	if (system(command) >> 8 == 128) {
-		return string_from(arena, "");
+		if (directory_exists(target_dir)) {
+			remove_directory(arena, target_dir);
+		}
+		return NULL;
 	}
 	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
 
-	printf("Library: %s\n", repo_name);
-	if (STR_CMP(tag, "") == 0) {
-		printf("Version: unknown\n");
-	} else {
-		printf("Version: %s\n", tag);
-	}
-	printf("Hash: %s\n", ref_hash);
-	printf("Done!\n");
+	// printf("Library: %s\n", repo_name);
 
-	return string_from(arena, repo_name);
+	/*
+	if (STR_CMP(tag, "") == 0) {
+	  if (directory_exists(target_dir)) {
+		remove_directory(arena, target_dir);
+	  }
+	  return NULL;
+	}
+	*/
+
+	lib_details->repo_name = repo_name;
+	lib_details->version = tag;
+	lib_details->hash = (char *)ref_hash;
+	printf("Done!\n");
+	remove_directory(arena,
+					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+	return lib_details;
 }
 
 void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,

@@ -69,8 +69,8 @@ char *get_lib_hash(Arena *arena, char *target_dir);
 char *arena_strdup(Arena *arena, const char *str);
 char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash);
-String *clone_lib_hashed(Arena *arena, const char *libURL,
-						 const char *ref_hash);
+LibDetails *clone_lib_hashed(Arena *arena, const char *libURL,
+							 const char *ref_hash);
 void add_library(char *libURL);
 void run_project(Arena *global_str_arena);
 void sync_dependency();
@@ -94,3 +94,4 @@ bool file_exists(const char *file_name);
 void add_local_lib(int lib_count, char **lib_link);
 void add_flag(int lib_count, char **lib_link);
 bool check_if_dep_path(const char *str);
+int remove_directory(Arena *arena, const char *path);
