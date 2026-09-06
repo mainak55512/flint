@@ -49,10 +49,10 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 				   yyjson_mut_val *sync_include_paths,
 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
 				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
-				   bool sync);
+				   bool sync, const char *hash);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);
-LibDetails *clone_lib(Arena *arena, char *libURL);
+LibDetails *clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
 int init_project();
 String *collect_src_files(Arena *str_arena, String *path);
