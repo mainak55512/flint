@@ -69,15 +69,6 @@ Currently, Flint uses a "manifest-first" approach:
 
 ```
 
-## Current Limitations
-
-As this is an early development prototype, please be aware of the following:
-
-* ~~**No Build Flags**: Custom compiler flags (e.g., -O3, -Wall) are not yet supported.~~
-* **Naming Conflicts**: There is currently no resolution logic for dependencies that share the same directory or project names.
-* ~~**Strict Compatibility**: Only repositories containing a `composition.json` file can be added as dependencies at this time.~~
-* ~~**No Incremental Builds**: The system currently performs full builds.~~
-
 ## Usage
 
 ### Initialize a Project
@@ -92,7 +83,7 @@ flint init
 (The remote repository must contain a `composition.json` file)
 
 ```bash
-flint add <git_remote_url>
+flint add <git_remote_url>@<version>
 
 ```
 or

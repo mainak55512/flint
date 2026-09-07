@@ -53,7 +53,7 @@ void print_version_details() {
 		"          =%*\n";
 
 	printf("%s\n", art);
-	printf("Version: 0.4.0\n\n");
+	printf("Version: v0.4.0\n\n");
 	printf("Usage: flint <command> [args]\n");
 	printf("Commands: init, add, build, add-lib, add-flag, run, gen, "
 		   "sync\n");
