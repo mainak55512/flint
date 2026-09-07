@@ -50,13 +50,13 @@ int init_project() {
 
 	project_dir = string_from(str_arena, ".");
 
-	printf("? Language (c/c++): ");
+	printf("? Language (c/c++) [default: c]: ");
 	project_lang = string_trim(str_arena, string_get(str_arena));
 
-	printf("? Project type (exec/lib): ");
+	printf("? Project type (exec/lib) [default: exec]: ");
 	project_type = string_trim(str_arena, string_get(str_arena));
 
-	printf("? Compiler path (default: gcc): ");
+	printf("? Compiler path [default: gcc]: ");
 	compiler_path = string_trim(str_arena, string_get(str_arena));
 
 	if (STR_CMP(string(compiler_path), "") == 0) {
@@ -85,7 +85,7 @@ int init_project() {
 
 	yyjson_mut_doc_free(doc);
 
-	isExec = STR_CMP(string(project_type), "exec") == 0 ? true : false;
+	isExec = STR_CMP(string(project_type), "lib") == 0 ? false : true;
 	if (isExec) {
 		String *src_dir =
 			string_concat_cstr(str_arena, 2, string(project_dir), "/src");
