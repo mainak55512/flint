@@ -1,3 +1,4 @@
+#include "yyjson.h"
 #include <flint.h>
 
 void update_package_file(yyjson_mut_doc *package) {
@@ -47,7 +48,7 @@ void sync_dependency() {
 	}
 
 	if (yyjson_mut_is_obj(deps)) {
-		// Arena *local_arena = arena_init(1024);
+		Arena *local_arena = arena_init(1024);
 		yyjson_mut_obj_iter iter;
 		yyjson_mut_obj_iter_init(deps, &iter);
 		yyjson_mut_val *key, *dep_obj;
@@ -55,7 +56,17 @@ void sync_dependency() {
 			dep_obj = yyjson_mut_obj_iter_get_val(key);
 			const char *dep_name = yyjson_mut_get_str(key);
 
+			char *hash = "";
+
 			yyjson_mut_val *dep_remote = yyjson_mut_obj_get(dep_obj, "remote");
+			yyjson_mut_val *dep_version =
+				yyjson_mut_obj_get(dep_obj, "version");
+			yyjson_mut_val *dep_hash = yyjson_mut_obj_get(dep_obj, "hash");
+
+			if (dep_hash) {
+				hash = (char *)yyjson_mut_get_str(dep_hash);
+			}
+
 			yyjson_mut_val *src = yyjson_mut_obj_get(dep_obj, "src");
 			yyjson_mut_val *include_paths =
 				yyjson_mut_obj_get(dep_obj, "include_paths");
@@ -73,10 +84,12 @@ void sync_dependency() {
 
 				// fetch_library(installed, (char
 				// *)yyjson_mut_get_str(dep_remote), 			  true);
-
-				fetch_library(installed, (char *)yyjson_mut_get_str(dep_remote),
-							  src, include_paths, flags, lib_links, stat_lib,
-							  shared_lib, true);
+				char *modified_url = string(string_concat_cstr(
+					local_arena, 3, (char *)yyjson_mut_get_str(dep_remote), "@",
+					(char *)yyjson_mut_get_str(dep_version)));
+				fetch_library(installed, modified_url, src, include_paths,
+							  flags, lib_links, stat_lib, shared_lib, true,
+							  hash);
 			}
 		}
 
@@ -91,7 +104,7 @@ void sync_dependency() {
 						   yyjson_mut_str(packageConf_mut, "packages"),
 						   package_arr);
 		update_package_file(packageConf_mut);
-		// arena_free(&local_arena);
+		arena_free(&local_arena);
 	}
 
 	generate_compile_commands();
@@ -105,6 +118,8 @@ void sync_dependency() {
 }
 
 void add_library(char *libURL) {
+	Arena *local_arena = arena_init(1024);
+	char *url = get_modified_url(local_arena, libURL);
 	yyjson_read_err err;
 	yyjson_doc *current_doc =
 		yyjson_read_file("./composition.json", 0, NULL, &err);
@@ -117,9 +132,10 @@ void add_library(char *libURL) {
 		yyjson_val *remote = yyjson_obj_get(val, "remote");
 		set_add(set, (char *)yyjson_get_str(remote));
 	}
-	if (!set_contains(set, libURL)) {
-		set_add(set, libURL);
-		fetch_library(set, libURL, NULL, NULL, NULL, NULL, NULL, NULL, false);
+	if (!set_contains(set, url)) {
+		set_add(set, url);
+		fetch_library(set, libURL, NULL, NULL, NULL, NULL, NULL, NULL, false,
+					  "");
 	}
 	yyjson_doc *package = yyjson_read_file("./deps/.package", 0, NULL, &err);
 	yyjson_mut_doc *package_mut = yyjson_doc_mut_copy(package, NULL);
@@ -141,8 +157,10 @@ void add_library(char *libURL) {
 	yyjson_mut_doc_free(package_mut);
 	yyjson_doc_free(current_doc);
 	vector_free(set);
+	arena_free(&local_arena);
 }
 
+/*
 String *clone_lib(Arena *arena, char *libURL) {
 	String *repo_name = string_from(arena, get_repo_name(arena, libURL));
 	printf("Installing %s...\n", string(repo_name));
@@ -152,21 +170,121 @@ String *clone_lib(Arena *arena, char *libURL) {
 	printf("Done!\n");
 	return repo_name;
 }
+*/
+
+LibDetails *clone_lib(Arena *arena, char *libURL, const char *hash) {
+	LibDetails *lib_details =
+		(LibDetails *)arena_alloc(arena, sizeof(LibDetails));
+	// @unknown will work for now, will change it later
+	// char *modified_url_temp =
+	// 	string(string_concat_cstr(arena, 2, libURL, "@unknown"));
+	// char *version_number = get_version_number(arena, modified_url_temp);
+	// char *url = get_modified_url(arena, modified_url_temp);
+	char *version_number = get_version_number(arena, libURL);
+	char *url = get_modified_url(arena, libURL);
+	char *repo_name = get_repo_name(arena, url);
+	char *target_dir =
+		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+	char *sink_path = ">/dev/null 2>&1";
+	printf("Installing %s...\n", repo_name);
+	// printf("HASH: %s\n", hash);
+	String *command;
+	if (STR_CMP(hash, "") == 0) {
+		if (STR_CMP(version_number, "unknown") == 0) {
+			command = string_concat_cstr(
+				arena, 4, "git clone --depth 1 --quiet ", url, " ", target_dir);
+		} else {
+			command = string_concat_cstr(
+				arena, 8, "git clone --depth 1 --quiet --branch ",
+				version_number, " ", url, " ", target_dir, " ", sink_path);
+		}
+	} else {
+		return clone_lib_hashed(arena, url, hash);
+	}
+
+	if (system(string(command)) >> 8 == 128) {
+		if (directory_exists(target_dir)) {
+			remove_directory(arena, target_dir);
+		}
+		return NULL;
+	}
+
+	char *ref_hash = get_lib_hash(arena, target_dir);
+	char *fetched_version = get_tag_from_hash(arena, target_dir, ref_hash);
+	lib_details->repo_name = repo_name;
+	lib_details->version = fetched_version;
+	lib_details->hash = ref_hash;
+
+	printf("Library: %s\n", lib_details->repo_name);
+	printf("Version: %s\n", lib_details->version);
+	printf("Hash: %s\n", lib_details->hash);
+	printf("Done!\n");
+
+	remove_directory(arena,
+					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+	return lib_details;
+}
+
+LibDetails *clone_lib_hashed(Arena *arena, const char *libURL,
+							 const char *ref_hash) {
+	LibDetails *lib_details =
+		(LibDetails *)arena_alloc(arena, sizeof(LibDetails));
+	char *repo_name = get_repo_name(arena, libURL);
+	char *target_dir =
+		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+	char *sink_path = ">/dev/null 2>&1";
+	char *command = string(string_concat_cstr(
+		arena, 24, "mkdir -p ", target_dir, " ", sink_path, " && git -C ",
+		target_dir, " init ", sink_path, " && git -C ", target_dir,
+		" remote add origin ", libURL, " ", sink_path, " && git -C ",
+		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
+		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
+	if (system(command) >> 8 == 128) {
+		if (directory_exists(target_dir)) {
+			remove_directory(arena, target_dir);
+		}
+		return NULL;
+	}
+	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
+
+	// printf("Library: %s\n", repo_name);
+
+	/*
+	if (STR_CMP(tag, "") == 0) {
+	  if (directory_exists(target_dir)) {
+		remove_directory(arena, target_dir);
+	  }
+	  return NULL;
+	}
+	*/
+
+	lib_details->repo_name = repo_name;
+	lib_details->version = tag;
+	lib_details->hash = (char *)ref_hash;
+
+	printf("Library: %s\n", lib_details->repo_name);
+	printf("Version: %s\n", lib_details->version);
+	printf("Hash: %s\n", lib_details->hash);
+	printf("Done!\n");
+	remove_directory(arena,
+					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+	return lib_details;
+}
 
 void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 				   yyjson_mut_val *sync_include_paths,
 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
 				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
-				   bool sync) {
-	String *command, *repo_name, *dep_mybuild_path;
+				   bool sync, const char *hash) {
+	String *command, *dep_mybuild_path;
 	Arena *str_arena;
 	yyjson_read_err err;
 
-	str_arena = arena_init(1024);
-	repo_name = clone_lib(str_arena, libURL);
+	str_arena = arena_init(2048);
+	LibDetails *lib_details = clone_lib(str_arena, libURL, hash);
 
 	String *config_path = string_concat_cstr(
-		str_arena, 3, "./deps/", string(repo_name), "/composition.json");
+		str_arena, 3, "./deps/", lib_details->repo_name, "/composition.json");
 	if (!sync && !is_mybuild_config_present(string(config_path))) {
 		arena_free(&str_arena);
 		return;
@@ -180,7 +298,7 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 		yyjson_mut_obj_get(current_root, "dependencies");
 
 	dep_mybuild_path = string_concat_cstr(
-		str_arena, 3, "./deps/", string(repo_name), "/composition.json");
+		str_arena, 3, "./deps/", lib_details->repo_name, "/composition.json");
 
 	// printf("Dep build path: %s\n", string(dep_mybuild_path));
 	yyjson_doc *dep_doc =
@@ -248,9 +366,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	yyjson_arr_foreach(src, idx, max, val) {
 		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_get_str(val)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_get_str(val)));
 			set_add(src_vec, src_path);
 		} else {
 			set_add(src_vec, (char *)yyjson_get_str(val));
@@ -258,9 +376,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	if (sync && yyjson_mut_is_arr(sync_src)) {
 		yyjson_mut_arr_foreach(sync_src, idx, max, val_mut) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_mut_get_str(val_mut)));
 			set_add(src_vec, src_path);
 			// set_add(src_vec, (char *)yyjson_mut_get_str(val_mut));
 		}
@@ -272,9 +390,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	yyjson_arr_foreach(headers, idx, max, val) {
 		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_get_str(val)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_get_str(val)));
 			set_add(incl_vec, src_path);
 		} else {
 			set_add(incl_vec, (char *)yyjson_get_str(val));
@@ -282,9 +400,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	if (sync && yyjson_mut_is_arr(sync_include_paths)) {
 		yyjson_mut_arr_foreach(sync_include_paths, idx, max, val_mut) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_mut_get_str(val_mut)));
 			set_add(incl_vec, src_path);
 			// set_add(incl_vec, (char *)yyjson_mut_get_str(val_mut));
 		}
@@ -296,9 +414,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	yyjson_arr_foreach(dep_stat_lib, idx, max, val) {
 		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_get_str(val)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_get_str(val)));
 			set_add(stat_vec, src_path);
 		} else {
 			set_add(stat_vec, (char *)yyjson_get_str(val));
@@ -306,9 +424,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	if (sync && yyjson_mut_is_arr(sync_stat)) {
 		yyjson_mut_arr_foreach(sync_stat, idx, max, val_mut) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_mut_get_str(val_mut)));
 			set_add(stat_vec, src_path);
 			// set_add(incl_vec, (char *)yyjson_mut_get_str(val_mut));
 		}
@@ -320,9 +438,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	yyjson_arr_foreach(dep_shared_lib, idx, max, val) {
 		if (!check_if_dep_path((char *)yyjson_get_str(val))) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_get_str(val)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_get_str(val)));
 			set_add(shared_vec, src_path);
 		} else {
 			set_add(shared_vec, (char *)yyjson_get_str(val));
@@ -330,9 +448,9 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	}
 	if (sync && yyjson_mut_is_arr(sync_shared)) {
 		yyjson_mut_arr_foreach(sync_shared, idx, max, val_mut) {
-			char *src_path = string(
-				string_concat_cstr(str_arena, 4, "deps/", string(repo_name),
-								   "/", (char *)yyjson_mut_get_str(val_mut)));
+			char *src_path = string(string_concat_cstr(
+				str_arena, 4, "deps/", lib_details->repo_name, "/",
+				(char *)yyjson_mut_get_str(val_mut)));
 			set_add(shared_vec, src_path);
 			// set_add(incl_vec, (char *)yyjson_mut_get_str(val_mut));
 		}
@@ -412,16 +530,27 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 							   temp_shared_arr);
 	}
 
-	if (!sync && !yyjson_mut_obj_get(dependencies, string(repo_name))) {
+	/*
+	if (!sync && !yyjson_mut_obj_get(dependencies, lib_details->repo_name)) {
 		yyjson_mut_val *target_obj = yyjson_mut_obj(current_mut_doc);
-		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "version", version);
+		// yyjson_mut_obj_add_str(current_mut_doc, target_obj, "version",
+		// 					   get_version_number(str_arena, libURL));
 
-		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "remote", libURL);
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "version",
+							   lib_details->version);
 
-		yyjson_mut_obj_add(dependencies,
-						   yyjson_mut_str(current_mut_doc, string(repo_name)),
-						   target_obj);
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "remote",
+							   get_modified_url(str_arena, libURL));
+
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "hash",
+							   lib_details->hash);
+
+		yyjson_mut_obj_add(
+			dependencies,
+			yyjson_mut_str(current_mut_doc, lib_details->repo_name),
+			target_obj);
 	}
+
 
 	if (dependencies != NULL) {
 		int d_idx = 0, d_max = 0;
@@ -437,7 +566,46 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 			}
 		}
 	}
+	*/
 
+	if (dependencies != NULL && lib_details != NULL) {
+		yyjson_mut_val *target_obj =
+			yyjson_mut_obj_get(dependencies, lib_details->repo_name);
+
+		if (!target_obj) {
+			target_obj = yyjson_mut_obj(current_mut_doc);
+			yyjson_mut_obj_add(
+				dependencies,
+				yyjson_mut_str(current_mut_doc, lib_details->repo_name),
+				target_obj);
+		}
+
+		yyjson_mut_obj_remove_str(target_obj, "version");
+		yyjson_mut_obj_remove_str(target_obj, "remote");
+		yyjson_mut_obj_remove_str(target_obj, "hash");
+
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "version",
+							   lib_details->version);
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "remote",
+							   get_modified_url(str_arena, libURL));
+		yyjson_mut_obj_add_str(current_mut_doc, target_obj, "hash",
+							   lib_details->hash);
+
+		// yyjson_mut_obj_put()
+
+		int d_idx = 0, d_max = 0;
+		yyjson_mut_val *d_key, *d_val;
+		yyjson_mut_obj_foreach(dependencies, d_idx, d_max, d_key, d_val) {
+			if (yyjson_mut_is_obj(d_val)) {
+				yyjson_mut_obj_remove_str(d_val, "flags");
+				yyjson_mut_obj_remove_str(d_val, "lib_links");
+				yyjson_mut_obj_remove_str(d_val, "src");
+				yyjson_mut_obj_remove_str(d_val, "include_paths");
+				yyjson_mut_obj_remove_str(d_val, "static_lib");
+				yyjson_mut_obj_remove_str(d_val, "shared_lib");
+			}
+		}
+	}
 	yyjson_write_err werr;
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
 	if (!yyjson_mut_write_file("./composition.json", current_mut_doc, flg, NULL,
@@ -449,10 +617,20 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 	idx = 0, max = 0;
 	yyjson_obj_foreach(dep_dependencies, idx, max, key, val) {
 		yyjson_val *remote = yyjson_obj_get(val, "remote");
+		yyjson_val *dep_version = yyjson_obj_get(val, "version");
+		yyjson_val *dep_hash = yyjson_obj_get(val, "hash");
+		char *hash = "";
+		if (dep_hash) {
+			hash = (char *)yyjson_get_str(dep_hash);
+		}
 		if (!set_contains(v, (char *)yyjson_get_str(remote))) {
 			set_add(v, (char *)yyjson_get_str(remote));
-			fetch_library(v, (char *)yyjson_get_str(remote), NULL, NULL, NULL,
-						  NULL, NULL, NULL, false);
+			char *modified_url = string(
+				string_concat_cstr(str_arena, 3, (char *)yyjson_get_str(remote),
+								   "@", (char *)yyjson_get_str(dep_version)));
+
+			fetch_library(v, modified_url, NULL, NULL, NULL, NULL, NULL, NULL,
+						  false, hash);
 		}
 	}
 	vector_free(flag_vec);

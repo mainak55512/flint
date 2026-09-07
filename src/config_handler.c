@@ -11,6 +11,7 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_obj_add_str(doc, root, "project_name", project_name);
 	yyjson_mut_obj_add_str(doc, root, "project_language", project_lang);
 	yyjson_mut_obj_add_str(doc, root, "compiler_path", compiler_path);
+	yyjson_mut_obj_add_str(doc, root, "version", "unknown");
 	yyjson_mut_obj_add_bool(doc, root, "executable", isExec);
 
 	yyjson_mut_val *headers = yyjson_mut_arr(doc);

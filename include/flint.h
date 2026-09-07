@@ -32,6 +32,12 @@
 
 #define BUFFER_SIZE 4096
 
+typedef struct {
+	char *repo_name;
+	char *version;
+	char *hash;
+} LibDetails;
+
 int create_append_file(char *file_path, char *content);
 void create_my_build_config(char *config_file_path, char *project_name,
 							char *project_lang, char *compiler_path,
@@ -43,10 +49,10 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
 				   yyjson_mut_val *sync_include_paths,
 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
 				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
-				   bool sync);
+				   bool sync, const char *hash);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);
-String *clone_lib(Arena *arena, char *libURL);
+LibDetails *clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
 int init_project();
 String *collect_src_files(Arena *str_arena, String *path);
@@ -57,6 +63,14 @@ String *get_current_working_dir(Arena *arena);
 int generate_compile_commands();
 String *build_project(Arena *global_str_arena);
 char *get_repo_name(Arena *arena, const char *git_url);
+char *get_version_number(Arena *arena, const char *git_url);
+char *get_modified_url(Arena *arena, const char *git_url);
+char *get_lib_hash(Arena *arena, char *target_dir);
+char *arena_strdup(Arena *arena, const char *str);
+char *get_tag_from_hash(Arena *arena, const char *target_dir,
+						const char *ref_hash);
+LibDetails *clone_lib_hashed(Arena *arena, const char *libURL,
+							 const char *ref_hash);
 void add_library(char *libURL);
 void run_project(Arena *global_str_arena);
 void sync_dependency();
@@ -80,3 +94,4 @@ bool file_exists(const char *file_name);
 void add_local_lib(int lib_count, char **lib_link);
 void add_flag(int lib_count, char **lib_link);
 bool check_if_dep_path(const char *str);
+int remove_directory(Arena *arena, const char *path);
