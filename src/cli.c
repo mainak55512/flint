@@ -66,8 +66,7 @@ int cli(int argc, char *argv[], Arena *global_str_arena) {
 	}
 	char *opt = argv[1];
 	if (STR_CMP(opt, "init") == 0) {
-		init_project();
-		return 0;
+		return init_project();
 	} else if (STR_CMP(opt, "add") == 0) {
 		add_library(argv[2]);
 		return 0;

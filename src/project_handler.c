@@ -1,25 +1,60 @@
 #include <flint.h>
 
-int check_available_archiever(String *cmd) {
-	char check_cmd[128];
+int check_available_tool(const char *cmd) {
+	const char *path = getenv("PATH");
+	const char *separator;
+	char candidate[4096];
+	size_t cmd_len = strlen(cmd);
 
+	if (strchr(cmd, '/')
 #if defined(_WIN32)
-	snprintf(check_cmd, sizeof(check_cmd), "where %s >nul 2>&1", string(cmd));
-#else
-	snprintf(check_cmd, sizeof(check_cmd), "command -v %s >/dev/null 2>&1",
-			 string(cmd));
+		|| strchr(cmd, '\\') || (cmd_len > 1 && cmd[1] == ':')
 #endif
-
-	return (system(check_cmd) == 0);
+	) {
+#if defined(_WIN32)
+		return _access(cmd, 0) == 0;
+#else
+		return access(cmd, X_OK) == 0;
+#endif
+	}
+	if (!path || cmd_len == 0)
+		return 0;
+	while (*path) {
+		separator = strchr(path,
+#if defined(_WIN32)
+						   ';'
+#else
+						   ':'
+#endif
+		);
+		size_t dir_len = separator ? (size_t)(separator - path) : strlen(path);
+		if (dir_len + cmd_len + 2 < sizeof(candidate)) {
+			if (dir_len == 0)
+				snprintf(candidate, sizeof(candidate), "./%s", cmd);
+			else
+				snprintf(candidate, sizeof(candidate), "%.*s/%s", (int)dir_len,
+						 path, cmd);
+#if defined(_WIN32)
+			if (_access(candidate, 0) == 0)
+#else
+			if (access(candidate, X_OK) == 0)
+#endif
+				return 1;
+		}
+		if (!separator)
+			break;
+		path = separator + 1;
+	}
+	return 0;
 }
 
 String *get_archiever(Arena *arena) {
 	String *llvm_ar = string_from(arena, "llvm-ar");
 	String *ar = string_from(arena, "ar");
 
-	if (check_available_archiever(llvm_ar)) {
+	if (check_available_tool("llvm-ar")) {
 		return llvm_ar;
-	} else if (check_available_archiever(ar)) {
+	} else if (check_available_tool("ar")) {
 		return ar;
 	}
 	return string_from(arena, "");
@@ -40,6 +75,14 @@ int init_project() {
 		printf("[!] Flint Chert already initiated!");
 		return ret;
 	}
+	if (!check_available_tool("git")) {
+		fprintf(stderr, "[!] Required tool 'git' was not found in PATH.\n");
+		return 1;
+	}
+	if (!check_available_tool("ar") && !check_available_tool("llvm-ar")) {
+		fprintf(stderr, "[!] Required tool 'ar' or 'llvm-ar' was not found in PATH.\n");
+		return 1;
+	}
 
 	str_arena = arena_init(1024);
 	printf("[+] Bootstrapping New Project...\n");
@@ -59,6 +102,12 @@ int init_project() {
 
 	if (STR_CMP(string(compiler_path), "") == 0) {
 		compiler_path = string_from(str_arena, "gcc");
+	}
+	if (!check_available_tool(string(compiler_path))) {
+		fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
+				string(compiler_path));
+		ret = 1;
+		goto CLEANUP;
 	}
 
 	dep_dir = string_concat_cstr(str_arena, 2, string(project_dir), "/deps");
