@@ -1,0 +1,8 @@
+{
+    "packages": [
+        "https://github.com/mainak55512/arena",
+        "https://github.com/mainak55512/CString",
+        "https://github.com/mainak55512/container",
+        "https://github.com/ibireme/yyjson"
+    ]
+}

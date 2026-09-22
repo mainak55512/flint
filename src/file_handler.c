@@ -1,4 +1,4 @@
-#include "yyjson.h"
+#include "cstring.h"
 #include <flint.h>
 
 int create_append_file(char *file_path, char *content) {
@@ -13,9 +13,11 @@ int create_append_file(char *file_path, char *content) {
 }
 
 String *collect_files(Arena *str_arena, String *path, String *type) {
+	Arena *arena = arena_init(1024);
 	String *src_files = string_from(str_arena, "");
 	String *ext_1 = string_from(str_arena, ".c");
 	String *ext_2 = string_from(str_arena, ".cpp");
+	String *ext_3 = NULL;
 
 	char sep[2] = {'\n', '\0'};
 
@@ -31,6 +33,7 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 		sep[0] = '\n';
 		ext_1 = string_from(str_arena, ".h");
 		ext_2 = string_from(str_arena, ".hpp");
+		ext_3 = string_from(str_arena, ".h.in");
 	}
 
 	DIR *dir;
@@ -49,10 +52,37 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 				STR_CMP(entry->d_name, "..") == 0) {
 				continue;
 			}
-
+			size_t name_len = strlen(entry->d_name);
 			char *dot = strrchr(entry->d_name, '.');
-			if (dot != NULL && (STR_CMP(dot, string(ext_1)) == 0 ||
-								STR_CMP(dot, string(ext_2)) == 0)) {
+			bool match = (dot != NULL && (STR_CMP(dot, string(ext_1)) == 0 ||
+										  STR_CMP(dot, string(ext_2)) == 0));
+
+			if (!match && ext_3 != NULL) {
+				size_t ext3_len = string_len(ext_3);
+				if (name_len >= ext3_len &&
+					STR_CMP(entry->d_name + name_len - ext3_len,
+							string(ext_3)) == 0) {
+					match = true;
+					size_t target_len = name_len - 3;
+					char header_name[256];
+
+					if (target_len < sizeof(header_name)) {
+						strncpy(header_name, entry->d_name, target_len);
+						header_name[target_len] = '\0';
+					}
+
+					char *in_path = string(string_concat_cstr(
+						arena, 3, string(path), "/", entry->d_name));
+					char *out_path = string(string_concat_cstr(
+						arena, 3, string(path), "/", header_name));
+					gen_header_from_tmpl(in_path, out_path);
+
+					strncpy(header_name, entry->d_name,
+							sizeof(header_name) - 1);
+					header_name[sizeof(header_name) - 1] = '\0';
+				}
+			}
+			if (match) {
 
 				if (string_len(src_files) > 0) {
 					src_files = string_concat_cstr(str_arena, 2,
@@ -66,6 +96,7 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 		}
 		closedir(dir);
 	}
+	arena_free(&arena);
 	return src_files;
 }
 
@@ -350,4 +381,88 @@ void update_version_file(char *version) {
 
 	fputs(version, file);
 	fclose(file);
+}
+
+void expand_line(const char *src, FILE *out, yyjson_val *vars) {
+	const char *ptr = src;
+
+	while (*ptr != '\0') {
+		if (*ptr == '@') {
+			const char *end = strchr(ptr + 1, '@');
+			if (end) {
+				size_t key_len = (size_t)(end - (ptr + 1));
+				char key[128];
+				if (key_len < sizeof(key)) {
+					strncpy(key, ptr + 1, key_len);
+					key[key_len] = '\0';
+
+					const char *val = yyjson_get_str(yyjson_obj_get(vars, key));
+					if (val) {
+						fputs(val, out);
+					}
+					ptr = end + 1;
+					continue;
+				}
+			}
+		}
+		fputc(*ptr++, out);
+	}
+}
+
+int gen_header_from_tmpl(const char *in_path, const char *out_path) {
+	FILE *in = fopen(in_path, "r");
+	if (!in) {
+		printf("file read error\n");
+		return -1;
+	}
+
+	FILE *out = fopen(out_path, "w");
+	if (!out) {
+		fclose(in);
+		return -1;
+	}
+	yyjson_read_err err;
+	yyjson_doc *doc = yyjson_read_file("./composition.json", 0, NULL, &err);
+	if (!doc) {
+		fprintf(stderr, "Read error: %s\n", err.msg);
+		return -1;
+	}
+	yyjson_val *root = yyjson_doc_get_root(doc);
+
+	yyjson_val *tmpl_vars = yyjson_obj_get(root, "tmpl");
+
+	char line[1024];
+	while (fgets(line, sizeof(line), in)) {
+		char *trimmed = line;
+		while (isspace((unsigned char)*trimmed))
+			trimmed++;
+
+		if (strncmp(trimmed, "#cmakedefine ", 13) == 0) {
+			char key[128] = {0};
+			char rest[256] = {0};
+
+			int matched = sscanf(trimmed + 13, "%127s %[^\n]", key, rest);
+			const char *val = yyjson_get_str(yyjson_obj_get(tmpl_vars, key));
+
+			if (val && strcmp(val, "0") != 0 && strcmp(val, "OFF") != 0) {
+				if (matched > 1 && strlen(rest) > 0) {
+					fprintf(out, "#define %s ", key);
+					expand_line(rest, out, tmpl_vars);
+					fputc('\n', out);
+				} else {
+					fprintf(out, "#define %s\n", key);
+				}
+			} else {
+				fprintf(out, "/* #undef %s */\n", key);
+			}
+			continue;
+		}
+
+		expand_line(line, out, tmpl_vars);
+	}
+
+	fclose(in);
+	fclose(out);
+	yyjson_doc_free(doc);
+	return 0;
 }

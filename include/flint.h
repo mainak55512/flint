@@ -108,3 +108,5 @@ char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);
 Vector *remove_excludes(Vector *collected, yyjson_val *excludes);
 void list_deps();
+void expand_line(const char *src, FILE *out, yyjson_val *vars);
+int gen_header_from_tmpl(const char *in_path, const char *out_path);

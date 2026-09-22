@@ -4,12 +4,13 @@
     "version": "v0.5.3",
     "compiler_path": "/usr/bin/clang-18",
     "executable": true,
-    "flags":[        
-          "-O3",
-          "-DNDEBUG",
-          "-fstack-protector-strong",
-          "-D_FORTIFY_SOURCE=2",
-          "-Wno-unused-result"
+    "flags": [
+        "-O3",
+        "-DNDEBUG",
+        "-fstack-protector-strong",
+        "-D_FORTIFY_SOURCE=2",
+        "-Wno-unused-result",
+        "-s"
     ],
     "include_paths": [
         "include",
@@ -25,8 +26,12 @@
         "deps/container/lib",
         "deps/yyjson/src"
     ],
-    "static_lib": ["static"],
-    "shared_lib": ["shared"],
+    "static_lib": [
+        "static"
+    ],
+    "shared_lib": [
+        "shared"
+    ],
     "dependencies": {
         "arena": {
             "version": "v0.1.1",
@@ -44,5 +49,7 @@
             "version": "0.12.0",
             "remote": "https://github.com/ibireme/yyjson"
         }
-    }
+    },
+    "lib_links": [],
+    "excludes": []
 }

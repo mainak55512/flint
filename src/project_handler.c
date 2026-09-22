@@ -321,9 +321,11 @@ String *build_project(Arena *global_str_arena) {
 
 	idx = 0, max = 0;
 
+	Vector *header_vec = vector_init(char *);
 	Vector *src_file_arr = vector_init(char *);
 	Vector *stat_file_arr = vector_init(char *);
 	Vector *shared_file_arr = vector_init(char *);
+	get_header_vec(str_arena, header_vec, root, dep_arr, cwd);
 	get_src_vec(str_arena, src_file_arr, root, dep_arr,
 				get_current_working_dir(str_arena));
 	get_stat_lib_vec(str_arena, stat_file_arr, root, dep_arr,
@@ -348,6 +350,7 @@ String *build_project(Arena *global_str_arena) {
 				if (cmd_err) {
 					fprintf(stderr,
 							"Error encountered while adding static libs\n");
+					vector_free(header_vec);
 					vector_free(src_file_arr);
 					vector_free(stat_file_arr);
 					vector_free(shared_file_arr);
@@ -362,6 +365,7 @@ String *build_project(Arena *global_str_arena) {
 				at(char *, stat_file_arr, i), "\")")));
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered while adding static libs\n");
+				vector_free(header_vec);
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
@@ -430,6 +434,7 @@ String *build_project(Arena *global_str_arena) {
 
 	if (create_append_err) {
 		fprintf(stderr, "Error encountered while generating `compile.rsp`\n");
+		vector_free(header_vec);
 		vector_free(src_file_arr);
 		vector_free(stat_file_arr);
 		vector_free(shared_file_arr);
@@ -472,6 +477,7 @@ String *build_project(Arena *global_str_arena) {
 			cmd_err = system(compilation_command);
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered at compilation\n");
+				vector_free(header_vec);
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
@@ -497,6 +503,7 @@ String *build_project(Arena *global_str_arena) {
 
 		if (cmd_err) {
 			fprintf(stderr, "Error encountered while generating executable\n");
+			vector_free(header_vec);
 			goto CLEANUP;
 		}
 		printf("[✓] Executable ganerated\n");
@@ -504,11 +511,9 @@ String *build_project(Arena *global_str_arena) {
 		String *archiever = get_archiever(str_arena);
 		if (STR_CMP(string(archiever), "") == 0) {
 			printf("[x] No archiever found!\n");
+			vector_free(header_vec);
 			goto CLEANUP;
 		}
-		Vector *header_vec = vector_init(char *);
-
-		get_header_vec(str_arena, header_vec, root, dep_arr, cwd);
 
 		mkdir_err = MAKE_DIR("./build/static");
 		mkdir_err = MAKE_DIR("./build/shared");
