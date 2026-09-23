@@ -1,3 +1,4 @@
+#include "yyjson.h"
 #include <flint.h>
 
 int check_available_tool(const char *cmd) {
@@ -255,11 +256,37 @@ CLEANUP:
 }
 
 String *build_project(Arena *global_str_arena) {
-	printf("[+] Compilation started\n");
 	String *command;
 	Arena *str_arena = arena_init(1024);
 
+	printf("[+] Gathering Resources\n");
+	yyjson_read_err err;
+	yyjson_doc *doc = yyjson_read_file("./composition.json", 0, NULL, &err);
+
+	if (!doc) {
+		fprintf(stderr, "Read error: %s\n", err.msg);
+		goto CLEANUP;
+	}
+	yyjson_val *root = yyjson_doc_get_root(doc);
+
+	size_t idx = 0, max = 0;
+	yyjson_val *val, *key;
+
+	Vector *header_arr = vector_init(const char *);
+	Vector *src_arr = vector_init(const char *);
+	Vector *exclude_dirs = vector_init(const char *);
+	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
+	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
+		set_add(exclude_dirs, (char *)yyjson_get_str(val));
+	}
+
+	traverse_dir(str_arena, string_from(str_arena, "."), src_arr, header_arr,
+				 exclude_dirs);
+
+	printf("[✓] done!\n");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
+
+	printf("[+] Compilation started\n");
 
 	mkdir_err = MAKE_DIR("build");
 
@@ -280,22 +307,13 @@ String *build_project(Arena *global_str_arena) {
 	}
 
 	String *cwd = get_current_working_dir(str_arena);
-	yyjson_read_err err;
-	yyjson_doc *doc = yyjson_read_file("./composition.json", 0, NULL, &err);
-
-	if (!doc) {
-		fprintf(stderr, "Read error: %s\n", err.msg);
-		goto CLEANUP;
-	}
-
-	yyjson_val *root = yyjson_doc_get_root(doc);
 
 	String *project_name = string_from(
 		str_arena,
 		(char *)yyjson_get_str(yyjson_obj_get(root, "project_name")));
 
-	yyjson_val *header_arr = yyjson_obj_get(root, "include_paths");
-	yyjson_val *src_arr = yyjson_obj_get(root, "src");
+	// yyjson_val *header_arr = yyjson_obj_get(root, "include_paths");
+	// yyjson_val *src_arr = yyjson_obj_get(root, "src");
 	yyjson_val *dep_arr = yyjson_obj_get(root, "dependencies");
 	yyjson_val *compiler_path = yyjson_obj_get(root, "compiler_path");
 	yyjson_val *executable = yyjson_obj_get(root, "executable");
@@ -310,27 +328,56 @@ String *build_project(Arena *global_str_arena) {
 	String *compiler = string_concat_cstr(
 		str_arena, 2, (char *)yyjson_get_str(compiler_path), " ");
 
-	size_t idx = 0, max = 0;
-	yyjson_val *val, *key;
+	// -------------------------------
+	// yyjson_arr_foreach(header_arr, idx, max, val) {
+	// 	header_list =
+	// 		string_concat_cstr(str_arena, 4, string(header_list), "\n\"-I./",
+	// 						   (char *)yyjson_get_str(val), "\"");
+	// }
 
-	yyjson_arr_foreach(header_arr, idx, max, val) {
+	for (int i = 0; i < length(header_arr); i++) {
 		header_list =
 			string_concat_cstr(str_arena, 4, string(header_list), "\n\"-I./",
-							   (char *)yyjson_get_str(val), "\"");
+							   at(char *, header_arr, i), "\"");
 	}
 
 	idx = 0, max = 0;
 
 	Vector *header_vec = vector_init(char *);
 	Vector *src_file_arr = vector_init(char *);
+
+	Vector *stat_dir_arr = vector_init(char *);
+	Vector *shared_dir_arr = vector_init(char *);
+
 	Vector *stat_file_arr = vector_init(char *);
 	Vector *shared_file_arr = vector_init(char *);
-	get_header_vec(str_arena, header_vec, root, dep_arr, cwd);
-	get_src_vec(str_arena, src_file_arr, root, dep_arr,
+
+	yyjson_val *stat_lib_arr_json = yyjson_obj_get(root, "static");
+	yyjson_val *shared_lib_arr_json = yyjson_obj_get(root, "shared");
+	if (yyjson_is_arr(stat_lib_arr_json)) {
+		yyjson_arr_iter iter;
+		yyjson_arr_iter_init(stat_lib_arr_json, &iter);
+		yyjson_val *val;
+		while ((val = yyjson_arr_iter_next(&iter))) {
+			append(char *, stat_dir_arr, (char *)yyjson_get_str(val));
+		}
+	}
+	if (yyjson_is_arr(shared_lib_arr_json)) {
+		yyjson_arr_iter iter;
+		yyjson_arr_iter_init(shared_lib_arr_json, &iter);
+		yyjson_val *val;
+		while ((val = yyjson_arr_iter_next(&iter))) {
+			append(char *, shared_dir_arr, (char *)yyjson_get_str(val));
+		}
+	}
+
+	get_header_vec(str_arena, header_arr, header_vec, root, /* dep_arr,*/ cwd);
+	get_src_vec(str_arena, src_arr, src_file_arr, root, /*dep_arr,*/
 				get_current_working_dir(str_arena));
-	get_stat_lib_vec(str_arena, stat_file_arr, root, dep_arr,
+	get_stat_lib_vec(str_arena, stat_dir_arr, stat_file_arr, root, /*dep_arr,*/
 					 get_current_working_dir(str_arena));
-	get_shared_lib_vec(str_arena, shared_file_arr, root, dep_arr,
+	get_shared_lib_vec(str_arena, shared_dir_arr, shared_file_arr,
+					   root, /* dep_arr,*/
 					   get_current_working_dir(str_arena));
 
 	String *stat_lib = string_from(str_arena, "");
@@ -354,6 +401,8 @@ String *build_project(Arena *global_str_arena) {
 					vector_free(src_file_arr);
 					vector_free(stat_file_arr);
 					vector_free(shared_file_arr);
+					vector_free(stat_dir_arr);
+					vector_free(shared_dir_arr);
 					goto CLEANUP;
 				}
 			}
@@ -369,6 +418,8 @@ String *build_project(Arena *global_str_arena) {
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
+				vector_free(stat_dir_arr);
+				vector_free(shared_dir_arr);
 				goto CLEANUP;
 			}
 		}
@@ -430,7 +481,8 @@ String *build_project(Arena *global_str_arena) {
 										   string(response_content));
 	create_append_err =
 		create_append_file("./build/.cache/lib_links.rsp", string(lib_links));
-	// create_append_file("./build/.cache/compile.rsp", string(static_libs));
+	// create_append_file("./build/.cache/compile.rsp",
+	// string(static_libs));
 
 	if (create_append_err) {
 		fprintf(stderr, "Error encountered while generating `compile.rsp`\n");
@@ -438,6 +490,8 @@ String *build_project(Arena *global_str_arena) {
 		vector_free(src_file_arr);
 		vector_free(stat_file_arr);
 		vector_free(shared_file_arr);
+		vector_free(stat_dir_arr);
+		vector_free(shared_dir_arr);
 		goto CLEANUP;
 	}
 
@@ -446,6 +500,8 @@ String *build_project(Arena *global_str_arena) {
 	for (int i = 0; i < length(src_file_arr); i++) {
 		const char *base_name =
 			get_filename_without_path(at(char *, src_file_arr, i));
+		char *full_path_src =
+			arena_strdup(str_arena, at(char *, src_file_arr, i));
 		String *obj_file = string_concat_cstr(str_arena, 3, "./build/.cache/",
 											  base_name, ".o");
 
@@ -481,16 +537,20 @@ String *build_project(Arena *global_str_arena) {
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
+				vector_free(stat_dir_arr);
+				vector_free(shared_dir_arr);
 				goto CLEANUP;
 			}
 
-			printf("[✓] Compiled '%s'\n", base_name);
+			printf("[✓] Compiled '%s'\n", full_path_src);
 		}
 	}
 
 	vector_free(src_file_arr);
 	vector_free(stat_file_arr);
 	vector_free(shared_file_arr);
+	vector_free(stat_dir_arr);
+	vector_free(shared_dir_arr);
 
 	String *output = string_concat_cstr(global_str_arena, 2, "./build/",
 										string(project_name));
@@ -523,9 +583,8 @@ String *build_project(Arena *global_str_arena) {
 		mkdir_err = MAKE_DIR("./build/shared/include");
 		if (mkdir_err) {
 			if (errno != EEXIST) {
-				fprintf(
-					stderr,
-					"Error encountered while generating library directories\n");
+				fprintf(stderr, "Error encountered while generating "
+								"library directories\n");
 				vector_free(header_vec);
 				goto CLEANUP;
 			}
@@ -581,6 +640,9 @@ CLEANUP:
 	if (doc) {
 		yyjson_doc_free(doc);
 	}
+	vector_free(src_arr);
+	vector_free(header_arr);
+	vector_free(exclude_dirs);
 	arena_free(&str_arena);
 	return output;
 }

@@ -14,30 +14,30 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_obj_add_str(doc, root, "version", "unknown");
 	yyjson_mut_obj_add_bool(doc, root, "executable", isExec);
 
-	yyjson_mut_val *headers = yyjson_mut_arr(doc);
-	yyjson_mut_val *sources = yyjson_mut_arr(doc);
+	// yyjson_mut_val *headers = yyjson_mut_arr(doc);
+	// yyjson_mut_val *sources = yyjson_mut_arr(doc);
 	yyjson_mut_val *flags = yyjson_mut_arr(doc);
 	yyjson_mut_val *lib_links = yyjson_mut_arr(doc);
 	yyjson_mut_val *static_lib = yyjson_mut_arr(doc);
 	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
 
-	if (isExec) {
-		yyjson_mut_arr_add_str(doc, sources, "src");
-	} else {
-		yyjson_mut_arr_add_str(doc, sources, "lib");
-	}
+	// if (isExec) {
+	// 	yyjson_mut_arr_add_str(doc, sources, "src");
+	// } else {
+	// 	yyjson_mut_arr_add_str(doc, sources, "lib");
+	// }
 
 	yyjson_mut_arr_add_str(doc, static_lib, "static");
 	yyjson_mut_arr_add_str(doc, shared_lib, "shared");
 
-	yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
-	yyjson_mut_obj_add_val(doc, root, "src", sources);
+	// yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
+	// yyjson_mut_obj_add_val(doc, root, "src", sources);
 	yyjson_mut_obj_add_val(doc, root, "flags", flags);
 	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
 	yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
 	yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
 
-	yyjson_mut_arr_add_str(doc, headers, "include");
+	// yyjson_mut_arr_add_str(doc, headers, "include");
 	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");
 
 	yyjson_mut_val *dependencies = yyjson_mut_obj(doc);
@@ -77,7 +77,19 @@ int generate_compile_commands() {
 	String *cwd = get_current_working_dir(str_arena);
 
 	Vector *include_paths = vector_init(char *);
+	Vector *src_paths = vector_init(char *);
+	Vector *exclude_paths = vector_init(char *);
+	size_t idx = 0, max = 0;
+	yyjson_val *val, *key;
+	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
+	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
+		set_add(exclude_paths, (char *)yyjson_get_str(val));
+	}
 
+	traverse_dir(str_arena, string_from(str_arena, "."), src_paths,
+				 include_paths, exclude_paths);
+
+	/*
 	yyjson_val *inc_arr = yyjson_obj_get(root, "include_paths");
 	if (yyjson_is_arr(inc_arr)) {
 		yyjson_arr_iter iter;
@@ -95,7 +107,9 @@ int generate_compile_commands() {
 											 (char *)yyjson_get_str(val))));
 		}
 	}
+	*/
 
+	/*
 	yyjson_val *deps = yyjson_obj_get(root, "dependencies");
 	if (yyjson_is_obj(deps)) {
 		yyjson_obj_iter iter;
@@ -131,9 +145,10 @@ int generate_compile_commands() {
 			}
 		}
 	}
+	*/
 
 	Vector *source_files = vector_init(char *);
-	get_src_vec(str_arena, source_files, root, deps, cwd);
+	get_src_vec(str_arena, src_paths, source_files, root, cwd);
 
 	yyjson_mut_doc *out_doc = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *out_root = yyjson_mut_arr(out_doc);

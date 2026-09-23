@@ -100,8 +100,9 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 	return src_files;
 }
 
-void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
-				   yyjson_val *deps, String *cwd, String *file_type) {
+void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+				   yyjson_val *root, /* yyjson_val *deps,*/ String *cwd,
+				   String *file_type) {
 	String *retrieve_type = file_type;
 
 	if (STR_CMP(string(file_type), "header") == 0) {
@@ -116,97 +117,102 @@ void get_files_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 
 	yyjson_val *excludes = yyjson_obj_get(root, "excludes");
 
-	yyjson_val *src_arr = yyjson_obj_get(root, string(retrieve_type));
-	if (yyjson_is_arr(src_arr)) {
-		yyjson_arr_iter iter;
-		yyjson_arr_iter_init(src_arr, &iter);
-		yyjson_val *val;
-		while ((val = yyjson_arr_iter_next(&iter))) {
-			Vector *src_temp_arr;
+	// yyjson_val *src_arr = yyjson_obj_get(root, string(retrieve_type));
+	// if (yyjson_is_arr(src_arr)) {
+	// 	yyjson_arr_iter iter;
+	// 	yyjson_arr_iter_init(src_arr, &iter);
+	// 	yyjson_val *val;
+	// while ((val = yyjson_arr_iter_next(&iter))) {
+	for (int i = 0; i < length(src_arr); i++) {
+		Vector *src_temp_arr;
 
-			if (STR_CMP(string(retrieve_type), "src") == 0) {
-				src_temp_arr = remove_excludes(
-					string_split_lines(
-						str_arena,
-						collect_files(
-							str_arena,
-							string_from(str_arena, (char *)yyjson_get_str(val)),
-							string_from(str_arena, string(file_type)))),
-					excludes);
-			} else {
-				src_temp_arr = string_split_lines(
+		if (STR_CMP(string(retrieve_type), "src") == 0) {
+			src_temp_arr = remove_excludes(
+				string_split_lines(
 					str_arena,
 					collect_files(
 						str_arena,
-						string_from(str_arena, (char *)yyjson_get_str(val)),
-						string_from(str_arena, string(file_type))));
-			}
-			for (int i = 0; i < length(src_temp_arr); i++) {
-				char *elem = string(at(String *, src_temp_arr, i));
-				if (STR_CMP(elem, "") != 0) {
-					append(char *, source_files, elem);
-				}
-			}
-			vector_free(src_temp_arr);
+						// string_from(str_arena, (char *)yyjson_get_str(val)),
+						string_from(str_arena, at(char *, src_arr, i)),
+						string_from(str_arena, string(file_type)))),
+				excludes);
+		} else {
+			src_temp_arr = string_split_lines(
+				str_arena,
+				collect_files(
+					str_arena,
+					// string_from(str_arena, (char *)yyjson_get_str(val)),
+					string_from(str_arena, at(char *, src_arr, i)),
+					string_from(str_arena, string(file_type))));
 		}
-	}
+		for (int i = 0; i < length(src_temp_arr); i++) {
+			char *elem = string(at(String *, src_temp_arr, i));
+			if (STR_CMP(elem, "") != 0) {
+				append(char *, source_files, elem);
+			}
+		}
+		vector_free(src_temp_arr);
+		// 	}
+		// }
 
-	if (yyjson_is_obj(deps) && yyjson_obj_size(deps) != 0) {
-		yyjson_obj_iter iter;
-		yyjson_obj_iter_init(deps, &iter);
-		yyjson_val *key, *dep_obj;
-		while ((key = yyjson_obj_iter_next(&iter))) {
-			dep_obj = yyjson_obj_iter_get_val(key);
-			const char *dep_name = yyjson_get_str(key);
+		/*
+		if (yyjson_is_obj(deps) && yyjson_obj_size(deps) != 0) {
+			yyjson_obj_iter iter;
+			yyjson_obj_iter_init(deps, &iter);
+			yyjson_val *key, *dep_obj;
+			while ((key = yyjson_obj_iter_next(&iter))) {
+				dep_obj = yyjson_obj_iter_get_val(key);
+				const char *dep_name = yyjson_get_str(key);
 
-			yyjson_val *dep_src =
-				yyjson_obj_get(dep_obj, string(retrieve_type));
-			if (yyjson_is_arr(dep_src) && yyjson_arr_size(dep_src) != 0) {
-				yyjson_arr_iter src_iter;
-				yyjson_arr_iter_init(dep_src, &src_iter);
-				yyjson_val *src_val;
-				while ((src_val = yyjson_arr_iter_next(&src_iter))) {
-					String *path = string_concat_cstr(
-						str_arena, 5, string(cwd), "/deps/", (char *)dep_name,
-						"/", (char *)yyjson_get_str(src_val));
-					Vector *src_temp_arr = string_split_lines(
-						str_arena,
-						collect_files(
-							str_arena, path,
-							string_from(str_arena, string(file_type))));
-					for (int i = 0; i < length(src_temp_arr); i++) {
-						char *elem = string(at(String *, src_temp_arr, i));
-						if (STR_CMP(elem, "") != 0) {
-							append(char *, source_files, elem);
+				yyjson_val *dep_src =
+					yyjson_obj_get(dep_obj, string(retrieve_type));
+				if (yyjson_is_arr(dep_src) && yyjson_arr_size(dep_src) != 0) {
+					yyjson_arr_iter src_iter;
+					yyjson_arr_iter_init(dep_src, &src_iter);
+					yyjson_val *src_val;
+					while ((src_val = yyjson_arr_iter_next(&src_iter))) {
+						String *path =
+							string_concat_cstr(str_arena, 5, string(cwd),
+											   "/deps/", (char *)dep_name, "/",
+											   (char *)yyjson_get_str(src_val));
+						Vector *src_temp_arr = string_split_lines(
+							str_arena,
+							collect_files(
+								str_arena, path,
+								string_from(str_arena, string(file_type))));
+						for (int i = 0; i < length(src_temp_arr); i++) {
+							char *elem = string(at(String *, src_temp_arr, i));
+							if (STR_CMP(elem, "") != 0) {
+								append(char *, source_files, elem);
+							}
 						}
+						vector_free(src_temp_arr);
 					}
-					vector_free(src_temp_arr);
 				}
-			}
-		}
+			}*/
 	}
 }
 
-void get_src_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
-				 yyjson_val *deps, String *cwd) {
-	get_files_vec(str_arena, source_files, root, deps, cwd,
+void get_src_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+				 yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
+	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
 				  string_from(str_arena, "src"));
 }
 
-void get_header_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
-					yyjson_val *deps, String *cwd) {
-	get_files_vec(str_arena, source_files, root, deps, cwd,
+void get_header_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+					yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
+	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
 				  string_from(str_arena, "header"));
 }
 
-void get_stat_lib_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
-					  yyjson_val *deps, String *cwd) {
-	get_files_vec(str_arena, source_files, root, deps, cwd,
+void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+					  yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
+	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
 				  string_from(str_arena, "static"));
 }
-void get_shared_lib_vec(Arena *str_arena, Vector *source_files,
-						yyjson_val *root, yyjson_val *deps, String *cwd) {
-	get_files_vec(str_arena, source_files, root, deps, cwd,
+void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
+	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
 				  string_from(str_arena, "dyn"));
 }
 
@@ -495,9 +501,29 @@ int is_header_file(const char *filename) {
 		   has_extension(filename, ".hxx") || has_extension(filename, ".h.in");
 }
 
+int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
+	const char *formatted_dir = format_path(dir_path);
+	size_t dir_len = strlen(formatted_dir);
+
+	for (int i = 0; i < length(excludes_dirs); i++) {
+		const char *excluded = at(const char *, excludes_dirs, i);
+		size_t ex_len = strlen(excluded);
+
+		if (ex_len == 0)
+			continue;
+
+		if (strncmp(formatted_dir, excluded, ex_len) == 0) {
+			if (formatted_dir[ex_len] == '\0' || formatted_dir[ex_len] == '/') {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
 void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 				  Vector *hdr_dirs, Vector *excludes_dirs) {
-	if (set_contains(excludes_dirs, format_path(string(dir_path)))) {
+	if (is_path_excluded(excludes_dirs, string(dir_path))) {
 		return;
 	}
 	DIR *dir = opendir(string(dir_path));
