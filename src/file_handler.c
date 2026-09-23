@@ -466,3 +466,69 @@ int gen_header_from_tmpl(const char *in_path, const char *out_path) {
 	yyjson_doc_free(doc);
 	return 0;
 }
+
+char *format_path(char *path) {
+	if (STR_CMP(path, ".") == 0) {
+		return "";
+	}
+	if (path[0] == '.' && path[1] == '/') {
+		return path + 2;
+	}
+	return path;
+}
+
+int has_extension(const char *filename, const char *ext) {
+	size_t len = strlen(filename);
+	size_t ext_len = strlen(ext);
+	if (len < ext_len)
+		return 0;
+	return STR_CMP(filename + len - ext_len, ext) == 0;
+}
+
+int is_source_file(const char *filename) {
+	return has_extension(filename, ".c") || has_extension(filename, ".cpp") ||
+		   has_extension(filename, ".cc") || has_extension(filename, ".cxx");
+}
+
+int is_header_file(const char *filename) {
+	return has_extension(filename, ".h") || has_extension(filename, ".hpp") ||
+		   has_extension(filename, ".hxx") || has_extension(filename, ".h.in");
+}
+
+void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
+				  Vector *hdr_dirs, Vector *excludes_dirs) {
+	if (set_contains(excludes_dirs, format_path(string(dir_path)))) {
+		return;
+	}
+	DIR *dir = opendir(string(dir_path));
+	if (!dir)
+		return;
+
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != NULL) {
+		if (strcmp(entry->d_name, ".") == 0 ||
+			strcmp(entry->d_name, "..") == 0) {
+			continue;
+		}
+
+		String *full_path =
+			string_concat_cstr(arena, 3, string(dir_path), "/", entry->d_name);
+
+		struct stat st;
+		if (stat(string(full_path), &st) == -1)
+			continue;
+
+		if (S_ISDIR(st.st_mode)) {
+			traverse_dir(arena, full_path, src_dirs, hdr_dirs, excludes_dirs);
+		} else if (S_ISREG(st.st_mode)) {
+			if (is_source_file(entry->d_name)) {
+				set_add(src_dirs, format_path(string(dir_path)));
+			}
+			if (is_header_file(entry->d_name)) {
+				set_add(hdr_dirs, format_path(string(dir_path)));
+			}
+		}
+	}
+
+	closedir(dir);
+}
