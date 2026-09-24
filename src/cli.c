@@ -61,20 +61,31 @@ void print_version_details() {
     printf("\nFor more information, run 'flint help'.\n");
 }
 
+typedef struct {
+	const char *name;
+	const char *description;
+} CommandHelp;
+
+// List of all commands and its description
+static const CommandHelp commands[] = {
+	{"init",     "Initialize a new project"},
+	{"add",      "Add a dependency"},
+	{"remove",   "Remove a dependency"},
+	{"add-lib",  "Add a library"},
+	{"add-flag", "Add a compiler flag"},
+	{"build",    "Build the project"},
+	{"run",      "Build and run the project"},
+	{"gen",      "Generate compile_commands.json"},
+	{"sync",     "Synchronize dependencies"},
+	{"deps",     "List dependencies"},
+};
+
 void print_help_message() {
 	printf("Usage: flint <command> [args]\n\n");
-
 	printf("Commands:\n");
-	printf("  init       Initialize a new project\n");
-	printf("  add        Add a dependency\n");
-	printf("  remove     Remove a dependency\n");
-	printf("  add-lib    Add a library\n");
-	printf("  add-flag   Add a compiler flag\n");
-	printf("  build      Build the project\n");
-	printf("  run        Build and run the project\n");
-	printf("  gen        Generate compile_commands.json\n");
-	printf("  sync       Synchronize dependencies\n");
-	printf("  deps       List dependencies\n");
+
+	for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
+		printf("  %-10s %s\n", commands[i].name, commands[i].description);
 }
 
 int cli(int argc, char *argv[], Arena *global_str_arena) {
