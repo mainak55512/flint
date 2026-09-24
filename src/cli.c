@@ -57,6 +57,24 @@ void print_version_details() {
 	printf("Usage: flint <command> [args]\n");
 	printf("Commands: init, add, remove, build, add-lib, add-flag, run, gen, "
 		   "sync, deps\n");
+
+    printf("\nFor more information, run 'flint help'.\n");
+}
+
+void print_help_message() {
+	printf("Usage: flint <command> [args]\n\n");
+
+	printf("Commands:\n");
+	printf("  init       Initialize a new project\n");
+	printf("  add        Add a dependency\n");
+	printf("  remove     Remove a dependency\n");
+	printf("  add-lib    Add a library\n");
+	printf("  add-flag   Add a compiler flag\n");
+	printf("  build      Build the project\n");
+	printf("  run        Build and run the project\n");
+	printf("  gen        Generate compile_commands.json\n");
+	printf("  sync       Synchronize dependencies\n");
+	printf("  deps       List dependencies\n");
 }
 
 int cli(int argc, char *argv[], Arena *global_str_arena) {
@@ -65,7 +83,10 @@ int cli(int argc, char *argv[], Arena *global_str_arena) {
 		return 1;
 	}
 	char *opt = argv[1];
-	if (STR_CMP(opt, "init") == 0) {
+    if (STR_CMP(opt, "help") == 0) {
+        print_help_message();
+        return 0;
+    } else if (STR_CMP(opt, "init") == 0) {
 		return init_project();
 	} else if (STR_CMP(opt, "add") == 0) {
 		add_library(argv[2]);
