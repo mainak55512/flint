@@ -126,6 +126,7 @@ void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 	for (int i = 0; i < length(src_arr); i++) {
 		Vector *src_temp_arr;
 
+		/*
 		if (STR_CMP(string(retrieve_type), "src") == 0) {
 			src_temp_arr = remove_excludes(
 				string_split_lines(
@@ -145,6 +146,16 @@ void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 					string_from(str_arena, at(char *, src_arr, i)),
 					string_from(str_arena, string(file_type))));
 		}
+*/
+		src_temp_arr = remove_excludes(
+			string_split_lines(
+				str_arena,
+				collect_files(
+					str_arena,
+					// string_from(str_arena, (char *)yyjson_get_str(val)),
+					string_from(str_arena, at(char *, src_arr, i)),
+					string_from(str_arena, string(file_type)))),
+			excludes);
 		for (int i = 0; i < length(src_temp_arr); i++) {
 			char *elem = string(at(String *, src_temp_arr, i));
 			if (STR_CMP(elem, "") != 0) {
@@ -500,6 +511,12 @@ int is_header_file(const char *filename) {
 	return has_extension(filename, ".h") || has_extension(filename, ".hpp") ||
 		   has_extension(filename, ".hxx") || has_extension(filename, ".h.in");
 }
+int is_static_lib_file(const char *filename) {
+	return has_extension(filename, ".a");
+}
+int is_shared_lib_file(const char *filename) {
+	return has_extension(filename, ".so");
+}
 
 int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
 	const char *formatted_dir = format_path(dir_path);
@@ -522,7 +539,8 @@ int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
 }
 
 void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
-				  Vector *hdr_dirs, Vector *excludes_dirs) {
+				  Vector *hdr_dirs, Vector *static_libs, Vector *shared_libs,
+				  Vector *excludes_dirs) {
 	if (is_path_excluded(excludes_dirs, string(dir_path))) {
 		return;
 	}
@@ -545,7 +563,8 @@ void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 			continue;
 
 		if (S_ISDIR(st.st_mode)) {
-			traverse_dir(arena, full_path, src_dirs, hdr_dirs, excludes_dirs);
+			traverse_dir(arena, full_path, src_dirs, hdr_dirs, static_libs,
+						 shared_libs, excludes_dirs);
 		} else if (S_ISREG(st.st_mode)) {
 			if (is_source_file(entry->d_name)) {
 				set_add(src_dirs, format_path(string(dir_path)));
@@ -553,8 +572,20 @@ void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 			if (is_header_file(entry->d_name)) {
 				set_add(hdr_dirs, format_path(string(dir_path)));
 			}
+			if (is_static_lib_file(entry->d_name)) {
+				set_add(static_libs, format_path(string(dir_path)));
+			}
+			if (is_shared_lib_file(entry->d_name)) {
+				set_add(shared_libs, format_path(string(dir_path)));
+			}
 		}
 	}
 
 	closedir(dir);
+}
+
+void clear_cache() {
+	Arena *arena = arena_init(2048);
+	remove_directory(arena, "build/.cache");
+	arena_free(&arena);
 }

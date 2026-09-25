@@ -1,4 +1,3 @@
-#include "yyjson.h"
 #include <flint.h>
 
 int check_available_tool(const char *cmd) {
@@ -274,6 +273,8 @@ String *build_project(Arena *global_str_arena) {
 
 	Vector *header_arr = vector_init(const char *);
 	Vector *src_arr = vector_init(const char *);
+	Vector *static_lib_arr = vector_init(const char *);
+	Vector *shared_lib_arr = vector_init(const char *);
 	Vector *exclude_dirs = vector_init(const char *);
 	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
 	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
@@ -281,7 +282,7 @@ String *build_project(Arena *global_str_arena) {
 	}
 
 	traverse_dir(str_arena, string_from(str_arena, "."), src_arr, header_arr,
-				 exclude_dirs);
+				 static_lib_arr, shared_lib_arr, exclude_dirs);
 
 	printf("[✓] done!\n");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
@@ -346,37 +347,44 @@ String *build_project(Arena *global_str_arena) {
 	Vector *header_vec = vector_init(char *);
 	Vector *src_file_arr = vector_init(char *);
 
-	Vector *stat_dir_arr = vector_init(char *);
-	Vector *shared_dir_arr = vector_init(char *);
+	// Vector *stat_dir_arr = vector_init(char *);
+	// Vector *shared_dir_arr = vector_init(char *);
 
 	Vector *stat_file_arr = vector_init(char *);
 	Vector *shared_file_arr = vector_init(char *);
 
-	yyjson_val *stat_lib_arr_json = yyjson_obj_get(root, "static");
-	yyjson_val *shared_lib_arr_json = yyjson_obj_get(root, "shared");
-	if (yyjson_is_arr(stat_lib_arr_json)) {
-		yyjson_arr_iter iter;
-		yyjson_arr_iter_init(stat_lib_arr_json, &iter);
-		yyjson_val *val;
-		while ((val = yyjson_arr_iter_next(&iter))) {
-			append(char *, stat_dir_arr, (char *)yyjson_get_str(val));
-		}
-	}
-	if (yyjson_is_arr(shared_lib_arr_json)) {
-		yyjson_arr_iter iter;
-		yyjson_arr_iter_init(shared_lib_arr_json, &iter);
-		yyjson_val *val;
-		while ((val = yyjson_arr_iter_next(&iter))) {
-			append(char *, shared_dir_arr, (char *)yyjson_get_str(val));
-		}
-	}
+	// yyjson_val *stat_lib_arr_json = yyjson_obj_get(root, "static");
+	// yyjson_val *shared_lib_arr_json = yyjson_obj_get(root, "shared");
+	// if (yyjson_is_arr(stat_lib_arr_json)) {
+	// 	yyjson_arr_iter iter;
+	// 	yyjson_arr_iter_init(stat_lib_arr_json, &iter);
+	// 	yyjson_val *val;
+	// 	while ((val = yyjson_arr_iter_next(&iter))) {
+	// 		append(char *, stat_dir_arr, (char *)yyjson_get_str(val));
+	// 	}
+	// }
+	// if (yyjson_is_arr(shared_lib_arr_json)) {
+	// 	yyjson_arr_iter iter;
+	// 	yyjson_arr_iter_init(shared_lib_arr_json, &iter);
+	// 	yyjson_val *val;
+	// 	while ((val = yyjson_arr_iter_next(&iter))) {
+	// 		append(char *, shared_dir_arr, (char *)yyjson_get_str(val));
+	// 	}
+	// }
 
 	get_header_vec(str_arena, header_arr, header_vec, root, /* dep_arr,*/ cwd);
 	get_src_vec(str_arena, src_arr, src_file_arr, root, /*dep_arr,*/
 				get_current_working_dir(str_arena));
-	get_stat_lib_vec(str_arena, stat_dir_arr, stat_file_arr, root, /*dep_arr,*/
+	// get_stat_lib_vec(str_arena, stat_dir_arr, stat_file_arr, root,
+	// /*dep_arr,*/ 				 get_current_working_dir(str_arena));
+	// get_shared_lib_vec(str_arena, shared_dir_arr, shared_file_arr,
+	// 				   root, /* dep_arr,*/
+	// 				   get_current_working_dir(str_arena));
+
+	get_stat_lib_vec(str_arena, static_lib_arr, stat_file_arr,
+					 root, /*dep_arr,*/
 					 get_current_working_dir(str_arena));
-	get_shared_lib_vec(str_arena, shared_dir_arr, shared_file_arr,
+	get_shared_lib_vec(str_arena, shared_lib_arr, shared_file_arr,
 					   root, /* dep_arr,*/
 					   get_current_working_dir(str_arena));
 
@@ -401,8 +409,10 @@ String *build_project(Arena *global_str_arena) {
 					vector_free(src_file_arr);
 					vector_free(stat_file_arr);
 					vector_free(shared_file_arr);
-					vector_free(stat_dir_arr);
-					vector_free(shared_dir_arr);
+					// vector_free(stat_dir_arr);
+					// vector_free(shared_dir_arr);
+					vector_free(static_lib_arr);
+					vector_free(shared_lib_arr);
 					goto CLEANUP;
 				}
 			}
@@ -418,8 +428,10 @@ String *build_project(Arena *global_str_arena) {
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
-				vector_free(stat_dir_arr);
-				vector_free(shared_dir_arr);
+				// vector_free(stat_dir_arr);
+				// vector_free(shared_dir_arr);
+				vector_free(static_lib_arr);
+				vector_free(shared_lib_arr);
 				goto CLEANUP;
 			}
 		}
@@ -490,8 +502,10 @@ String *build_project(Arena *global_str_arena) {
 		vector_free(src_file_arr);
 		vector_free(stat_file_arr);
 		vector_free(shared_file_arr);
-		vector_free(stat_dir_arr);
-		vector_free(shared_dir_arr);
+		// vector_free(stat_dir_arr);
+		// vector_free(shared_dir_arr);
+		vector_free(static_lib_arr);
+		vector_free(shared_lib_arr);
 		goto CLEANUP;
 	}
 
@@ -537,8 +551,10 @@ String *build_project(Arena *global_str_arena) {
 				vector_free(src_file_arr);
 				vector_free(stat_file_arr);
 				vector_free(shared_file_arr);
-				vector_free(stat_dir_arr);
-				vector_free(shared_dir_arr);
+				// vector_free(stat_dir_arr);
+				// vector_free(shared_dir_arr);
+				vector_free(static_lib_arr);
+				vector_free(shared_lib_arr);
 				goto CLEANUP;
 			}
 
@@ -549,8 +565,10 @@ String *build_project(Arena *global_str_arena) {
 	vector_free(src_file_arr);
 	vector_free(stat_file_arr);
 	vector_free(shared_file_arr);
-	vector_free(stat_dir_arr);
-	vector_free(shared_dir_arr);
+	// vector_free(stat_dir_arr);
+	// vector_free(shared_dir_arr);
+	vector_free(static_lib_arr);
+	vector_free(shared_lib_arr);
 
 	String *output = string_concat_cstr(global_str_arena, 2, "./build/",
 										string(project_name));

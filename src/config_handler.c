@@ -20,6 +20,8 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_val *lib_links = yyjson_mut_arr(doc);
 	yyjson_mut_val *static_lib = yyjson_mut_arr(doc);
 	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
+	yyjson_mut_val *excludes = yyjson_mut_arr(doc);
+	yyjson_mut_val *exclude_dirs = yyjson_mut_arr(doc);
 
 	// if (isExec) {
 	// 	yyjson_mut_arr_add_str(doc, sources, "src");
@@ -36,6 +38,8 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
 	yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
 	yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
+	yyjson_mut_obj_add_val(doc, root, "excludes", excludes);
+	yyjson_mut_obj_add_val(doc, root, "exclude_dirs", exclude_dirs);
 
 	// yyjson_mut_arr_add_str(doc, headers, "include");
 	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");
@@ -78,6 +82,8 @@ int generate_compile_commands() {
 
 	Vector *include_paths = vector_init(char *);
 	Vector *src_paths = vector_init(char *);
+	Vector *static_libs = vector_init(char *);
+	Vector *shared_libs = vector_init(char *);
 	Vector *exclude_paths = vector_init(char *);
 	size_t idx = 0, max = 0;
 	yyjson_val *val, *key;
@@ -87,7 +93,7 @@ int generate_compile_commands() {
 	}
 
 	traverse_dir(str_arena, string_from(str_arena, "."), src_paths,
-				 include_paths, exclude_paths);
+				 include_paths, static_libs, shared_libs, exclude_paths);
 
 	/*
 	yyjson_val *inc_arr = yyjson_obj_get(root, "include_paths");
@@ -171,6 +177,8 @@ int generate_compile_commands() {
 			success = 0;
 			vector_free(include_paths);
 			vector_free(source_files);
+			vector_free(static_libs);
+			vector_free(shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -182,6 +190,8 @@ int generate_compile_commands() {
 			success = 0;
 			vector_free(include_paths);
 			vector_free(source_files);
+			vector_free(static_libs);
+			vector_free(shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -199,6 +209,8 @@ int generate_compile_commands() {
 			success = 0;
 			vector_free(include_paths);
 			vector_free(source_files);
+			vector_free(static_libs);
+			vector_free(shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -219,6 +231,8 @@ int generate_compile_commands() {
 
 	vector_free(include_paths);
 	vector_free(source_files);
+	vector_free(static_libs);
+	vector_free(shared_libs);
 	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:

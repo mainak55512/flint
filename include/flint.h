@@ -89,9 +89,9 @@ void sync_dependency();
 // 					yyjson_val *deps, String *cwd);
 
 // void get_stat_lib_vec(Arena *str_arena, Vector *source_files, yyjson_val
-// *root, 					  yyjson_val *deps, String *cwd); void get_shared_lib_vec(Arena
-// *str_arena, Vector *source_files, 						yyjson_val *root, yyjson_val *deps, String
-// *cwd);
+// *root, 					  yyjson_val *deps, String *cwd); void
+// get_shared_lib_vec(Arena *str_arena, Vector *source_files,
+// yyjson_val *root, yyjson_val *deps, String *cwd);
 const char *get_filename_without_path(const char *path);
 int cli(int argc, char *argv[], Arena *global_str_arena);
 long long get_file_modified_time(const char *path);
@@ -110,8 +110,12 @@ Vector *remove_excludes(Vector *collected, yyjson_val *excludes);
 void list_deps();
 void expand_line(const char *src, FILE *out, yyjson_val *vars);
 int gen_header_from_tmpl(const char *in_path, const char *out_path);
+// void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
+// 				  Vector *hdr_dirs, Vector *excludes_dirs);
+
 void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
-				  Vector *hdr_dirs, Vector *excludes_dirs);
+				  Vector *hdr_dirs, Vector *static_libs, Vector *shared_libs,
+				  Vector *excludes_dirs);
 
 // void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 // 				   yyjson_val *root, /* yyjson_val *deps,*/ String *cwd,
@@ -124,3 +128,4 @@ void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 					  yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
 void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
+void clear_cache();
