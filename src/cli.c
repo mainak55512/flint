@@ -21,7 +21,9 @@ static const CommandHelp commands[] = {
 	{"cache", "clear cache of the project"},
 };
 
-void print_version_details() { printf("\nVersion: %s\n", STR(VERSION)); }
+void print_version_details() {
+	printf("\nVersion: %s\n", STR(PROJECT_VERSION));
+}
 
 void print_help_message() {
 	/*

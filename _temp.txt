@@ -1,15 +1,120 @@
+"libsodium": {
+    "version": "unknown",
+    "tmpl": {
+        "SODIUM_LIBRARY_VERSION_MAJOR": "30",
+        "SODIUM_LIBRARY_VERSION_MINOR":"0",
+        "DLL_VERSION": "30",
+        "SODIUM_LIBRARY_VERSION": "30:0:0"
+    },
+    "flags": ["-w"],
+    "lib_links": ["-lpthread"],
+    "exclude_dirs": ["build", "builds", "test"],
+    "remote": "https://github.com/jedisct1/libsodium.git"
+}
 
-    "include_paths": [
-        "include",
-        "deps/CString/include",
-        "deps/arena/include",
-        "deps/container/include",
-        "deps/yyjson/src"
+    
+"yyjson": {
+    "version": "0.12.0",
+    "exclude_dirs": ["fuzz", "misc", "test"],
+    "remote": "https://github.com/ibireme/yyjson"
+}        
+
+
+"Crow": {
+    "version": "unknown",
+    "flags": [
+        "-std=c++17", "-O3", "-DASIO_NO_DEPRECATED",
+        "-DCROW_ENABLE_SSL", "-DCROW_ENABLE_COMPRESSION"
     ],
-    "src": [
-        "src",
-        "deps/CString/lib",
-        "deps/arena/lib",
-        "deps/container/lib",
-        "deps/yyjson/src"
+    "lib_links": [
+        "-lpthread", "-lssl", "-lcrypto", "-lz"
     ],
+    "exclude_dirs": ["cmake", "docs", "examples", "scripts", "tests"],
+    "remote": "https://github.com/CrowCpp/Crow"
+}
+
+
+"raylib": {
+    "version": "unknown",
+    "flags": [
+        "-std=c99", "-D_GNU_SOURCE", "-DGL_SILENCE_DEPRECATION=199309L",
+        "-DPLATFORM_DESKTOP_GLFW", "-DGRAPHICS_API_OPENGL_33",
+        "-DSUPPORT_MODULE_RSHAPES=1", "-DSUPPORT_MODULE_RTEXTURES=1",
+        "-DSUPPORT_MODULE_RTEXT=1", "-DSUPPORT_MODULE_RMODELS=1",
+        "-DSUPPORT_MODULE_RAUDIO=1", "-D_GLFW_X11"
+    ],
+    "lib_links": [
+        "-lGL", "-lX11", "-lXrandr", "-lXinerama", "-lXi",
+        "-lXcursor", "-lm", "-lpthread", "-ldl", "-lrt"
+    ],
+
+    "excludes": [
+        "src/rcore_desktop.c", "src/rcore_desktop_glfw.c",
+        "src/rcore_desktop_sdl.c", "src/rcore_web.c",
+        "src/rcore_android.c", "src/rcore_drm.c", "src/raylib.rc"
+    ],
+    "exclude_dirs": [
+        "examples", "projects", "tools",
+        "src/external", "src/platforms"
+    ],
+    "exclude_exception": ["src/external/glfw/include"],
+    "remote": "https://github.com/raysan5/raylib.git"
+}
+
+
+"lua": {
+  "version": "v5.5.1",
+  "remote": "https://github.com/lua/lua",
+  "flags": [
+    "-std=c99", "-O2", "-Wall", "-Wextra", "-Wfatal-errors", "-Wshadow",
+    "-Wundef", "-Wwrite-strings", "-Wredundant-decls", "-Wdisabled-optimization",
+    "-Wdouble-promotion", "-Wmissing-declarations", "-Wconversion", "-Wlogical-op",
+    "-Wno-aggressive-loop-optimizations", "-Wdeclaration-after-statement",
+    "-Wmissing-prototypes", "-Wnested-externs", "-Wstrict-prototypes",
+    "-Wc++-compat", "-Wold-style-definition", "-DLUA_USE_LINUX",
+    "-fno-stack-protector", "-fno-common", "-Wl,-E"
+  ],
+  "lib_links": [
+    "-ldl", "-lm"
+  ],
+  "excludes": [
+    "lua.c", "onelua.c"
+  ],
+  "exclude_dirs": ["testes"]
+}
+
+
+"asio": {
+  "version": "unknown",
+  "remote": "https://github.com/boostorg/asio.git",
+  "flags": [
+    "-std=c++11"
+  ],
+  "lib_links": [
+    "-lpthread"
+  ],
+  "exclude_dirs": [""],
+  "exclude_exception": ["include"]
+}
+
+
+"math": {
+  "version": "unknown",
+  "remote": "https://github.com/boostorg/math.git",
+  "flags": [
+    "-std=c++14",
+    "-DBOOST_MATH_STANDALONE=1"
+  ],
+  "exclude_dirs": [""],
+  "exclude_exception": ["include"]
+}
+
+
+"mINI": {
+    "version": "0.9.20",
+    "remote": "https://github.com/metayeti/mINI.git",
+    "flags": [
+        "-std=c++17"
+    ],
+    "exclude_dirs": ["tests"]
+}

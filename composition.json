@@ -1,7 +1,7 @@
 {
     "project_name": "flint",
     "project_language": "c",
-    "version": "v0.5.4",
+    "version": "v0.5.5",
     "compiler_path": "/usr/bin/clang-18",
     "executable": true,
     "flags": [
@@ -38,6 +38,12 @@
         "yyjson": {
             "version": "0.12.0",
             "remote": "https://github.com/ibireme/yyjson"
+        },
+        "Cmap": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/Cmap",
+            "hash": "5827928228c9d2c44eacbe44b4457b496554be57"
         }
-    }
+    },
+    "tmpl": []
 }

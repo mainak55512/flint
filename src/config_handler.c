@@ -22,6 +22,7 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
 	yyjson_mut_val *excludes = yyjson_mut_arr(doc);
 	yyjson_mut_val *exclude_dirs = yyjson_mut_arr(doc);
+	yyjson_mut_val *tmpl = yyjson_mut_obj(doc);
 
 	// if (isExec) {
 	// 	yyjson_mut_arr_add_str(doc, sources, "src");
@@ -29,17 +30,18 @@ void create_my_build_config(char *config_file_path, char *project_name,
 	// 	yyjson_mut_arr_add_str(doc, sources, "lib");
 	// }
 
-	yyjson_mut_arr_add_str(doc, static_lib, "static");
-	yyjson_mut_arr_add_str(doc, shared_lib, "shared");
+	// yyjson_mut_arr_add_str(doc, static_lib, "static");
+	// yyjson_mut_arr_add_str(doc, shared_lib, "shared");
 
 	// yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
 	// yyjson_mut_obj_add_val(doc, root, "src", sources);
 	yyjson_mut_obj_add_val(doc, root, "flags", flags);
 	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
-	yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
-	yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
+	// yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
+	// yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
 	yyjson_mut_obj_add_val(doc, root, "excludes", excludes);
 	yyjson_mut_obj_add_val(doc, root, "exclude_dirs", exclude_dirs);
+	yyjson_mut_obj_add_val(doc, root, "tmpl", tmpl);
 
 	// yyjson_mut_arr_add_str(doc, headers, "include");
 	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");
@@ -85,15 +87,26 @@ int generate_compile_commands() {
 	Vector *static_libs = vector_init(char *);
 	Vector *shared_libs = vector_init(char *);
 	Vector *exclude_paths = vector_init(char *);
+	Vector *exclude_exception_paths = vector_init(char *);
 	size_t idx = 0, max = 0;
 	yyjson_val *val, *key;
 	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
 	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
 		set_add(exclude_paths, (char *)yyjson_get_str(val));
 	}
+	yyjson_val *exclude_exception_json =
+		yyjson_obj_get(root, "exclude_exception");
+	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
+		set_add(exclude_exception_paths, (char *)yyjson_get_str(val));
+	}
 
 	traverse_dir(str_arena, string_from(str_arena, "."), src_paths,
 				 include_paths, static_libs, shared_libs, exclude_paths);
+
+	for (int i = 0; i < length(exclude_exception_paths); i++) {
+		set_add(src_paths, at(char *, exclude_exception_paths, i));
+		set_add(include_paths, at(char *, exclude_exception_paths, i));
+	}
 
 	/*
 	yyjson_val *inc_arr = yyjson_obj_get(root, "include_paths");
@@ -236,6 +249,8 @@ int generate_compile_commands() {
 	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:
+	vector_free(exclude_paths);
+	vector_free(exclude_exception_paths);
 	yyjson_doc_free(doc);
 	arena_free(&str_arena);
 

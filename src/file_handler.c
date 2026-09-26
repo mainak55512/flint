@@ -541,6 +541,7 @@ int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
 void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 				  Vector *hdr_dirs, Vector *static_libs, Vector *shared_libs,
 				  Vector *excludes_dirs) {
+
 	if (is_path_excluded(excludes_dirs, string(dir_path))) {
 		return;
 	}

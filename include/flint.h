@@ -1,4 +1,5 @@
 #include <arena.h>
+#include <cmap.h>
 #include <container.h>
 #include <cstring.h>
 #include <ctype.h>
@@ -41,8 +42,8 @@ typedef struct {
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-#ifndef VERSION
-#define VERSION unknown
+#ifndef PROJECT_VERSION
+#define PROJECT_VERSION unknown
 #endif
 
 int create_append_file(char *file_path, char *content);
@@ -52,11 +53,11 @@ void create_my_build_config(char *config_file_path, char *project_name,
 int check_project_lang(char *lang);
 String *build_project(Arena *global_str_arena);
 
-void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
-				   yyjson_mut_val *sync_include_paths,
-				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
-				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
-				   bool sync, const char *hash, yyjson_mut_val *sync_excludes);
+// void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
+// 				   yyjson_mut_val *sync_include_paths,
+// 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
+// 				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
+// 				   bool sync, const char *hash, yyjson_mut_val *sync_excludes);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);
 LibDetails *clone_lib(Arena *arena, char *libURL, const char *hash);
@@ -129,3 +130,11 @@ void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
 void clear_cache();
+
+void fetch_library(Vector *v, char *libURL, /*yyjson_mut_val *sync_src,
+				   yyjson_mut_val *sync_include_paths,*/
+				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
+				   /*yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,*/
+				   const char *hash, yyjson_mut_val *sync_excludes,
+				   yyjson_mut_val *sync_exclude_dirs, yyjson_mut_val *sync_tmpl,
+				   yyjson_mut_val *sync_exclude_exception_dirs, bool sync);

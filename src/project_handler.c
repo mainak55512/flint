@@ -276,13 +276,24 @@ String *build_project(Arena *global_str_arena) {
 	Vector *static_lib_arr = vector_init(const char *);
 	Vector *shared_lib_arr = vector_init(const char *);
 	Vector *exclude_dirs = vector_init(const char *);
+	Vector *exclude_exception_dirs = vector_init(const char *);
 	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
 	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
 		set_add(exclude_dirs, (char *)yyjson_get_str(val));
 	}
+	yyjson_val *exclude_exception_json =
+		yyjson_obj_get(root, "exclude_exception");
+	yyjson_arr_foreach(exclude_exception_json, idx, max, val) {
+		set_add(exclude_exception_dirs, (char *)yyjson_get_str(val));
+	}
 
 	traverse_dir(str_arena, string_from(str_arena, "."), src_arr, header_arr,
 				 static_lib_arr, shared_lib_arr, exclude_dirs);
+
+	for (int i = 0; i < length(exclude_exception_dirs); i++) {
+		set_add(src_arr, at(char *, exclude_exception_dirs, i));
+		set_add(header_arr, at(char *, exclude_exception_dirs, i));
+	}
 
 	printf("[✓] done!\n");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
@@ -541,8 +552,8 @@ String *build_project(Arena *global_str_arena) {
 
 		if (need_recompile) {
 			char *compilation_command = string(string_concat_cstr(
-				str_arena, 7, string(compiler), " -DVERSION=\\\"", version_str,
-				"\\\" @./build/.cache/compile.rsp ",
+				str_arena, 7, string(compiler), " -DPROJECT_VERSION=\\\"",
+				version_str, "\\\" @./build/.cache/compile.rsp ",
 				at(char *, src_file_arr, i), " -o ", string(obj_file)));
 			cmd_err = system(compilation_command);
 			if (cmd_err) {
@@ -661,6 +672,7 @@ CLEANUP:
 	vector_free(src_arr);
 	vector_free(header_arr);
 	vector_free(exclude_dirs);
+	vector_free(exclude_exception_dirs);
 	arena_free(&str_arena);
 	return output;
 }
