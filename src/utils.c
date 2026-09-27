@@ -246,6 +246,8 @@ char *get_tag_from_hash(Arena *arena, const char *target_dir,
 		char *git_tag = arena_strdup(arena, buffer);
 		return git_tag;
 	}
+
+	pclose(fp);
 	return arena_strdup(arena, "unknown");
 }
 

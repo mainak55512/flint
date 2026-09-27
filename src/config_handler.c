@@ -189,6 +189,7 @@ int generate_compile_commands() {
 					"Error encountered while generating compile commands\n");
 			success = 0;
 			vector_free(include_paths);
+			vector_free(src_paths);
 			vector_free(source_files);
 			vector_free(static_libs);
 			vector_free(shared_libs);
@@ -202,6 +203,7 @@ int generate_compile_commands() {
 					"Error encountered while generating compile commands\n");
 			success = 0;
 			vector_free(include_paths);
+			vector_free(src_paths);
 			vector_free(source_files);
 			vector_free(static_libs);
 			vector_free(shared_libs);
@@ -221,6 +223,7 @@ int generate_compile_commands() {
 					"Error encountered while generating compile commands\n");
 			success = 0;
 			vector_free(include_paths);
+			vector_free(src_paths);
 			vector_free(source_files);
 			vector_free(static_libs);
 			vector_free(shared_libs);
@@ -243,6 +246,7 @@ int generate_compile_commands() {
 	}*/
 
 	vector_free(include_paths);
+	vector_free(src_paths);
 	vector_free(source_files);
 	vector_free(static_libs);
 	vector_free(shared_libs);
