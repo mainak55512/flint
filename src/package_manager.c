@@ -651,6 +651,8 @@ void remove_library(char *repo_name) {
 	yyjson_mut_val *shared_lib_arr = yyjson_mut_obj_get(root, "shared_lib");
 	yyjson_mut_val *excludes_arr = yyjson_mut_obj_get(root, "excludes");
 	yyjson_mut_val *exclude_dir_arr = yyjson_mut_obj_get(root, "exclude_dirs");
+	yyjson_mut_val *exclude_exception_dir_arr =
+		yyjson_mut_obj_get(root, "exclude_exception");
 
 	char *search_str =
 		string(string_concat_cstr(local_arena, 2, "deps/", repo_name));
@@ -661,6 +663,7 @@ void remove_library(char *repo_name) {
 	remove_arr_entry(shared_lib_arr, search_str);
 	remove_arr_entry(excludes_arr, search_str);
 	remove_arr_entry(exclude_dir_arr, search_str);
+	remove_arr_entry(exclude_exception_dir_arr, search_str);
 
 	yyjson_write_err werr;
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
