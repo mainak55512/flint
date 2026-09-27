@@ -130,7 +130,7 @@ my_project/
 | Package Management Method | Git-native clones to deps/ via CLI (flint add) | Manifest/Port-tree repos & binary caching | CMake FetchContent (configure-time download) | Wrap files (.wrap) & WrapDB registry |
 | Non-Native Library Handling | Chert Compositions (custom specs for non-Flint repos) | vcpkg Port Overlay recipes | Requires manual CMake target wrapping | Meson Wrap subproject patches |
 | Incremental Build Engine | Native state/modification tracking | Delegated to backend (Ninja/Make) | Delegated to CMake backend | Delegated to Ninja | 
-| Directory Model | Convention-over-configuration (src/, include/, deps/) | Fully explicit & customisable | Explicit & customisable | Explicit & customisable |
+| Directory Model | Flexible | Fully explicit & customisable | Explicit & customisable | Explicit & customisable |
 | Platform Support | Linux & macOS (Current) | Cross-Platform (Linux, macOS, Windows) | Cross-Platform (Linux, macOS, Windows) | Cross-Platform (Linux, macOS, Windows) |
 | Cross-Compilation | Flags passed to system compiler | Toolchain files (-DCMAKE_TOOLCHAIN_FILE) | Toolchain files via CMake | Cross-definition files (--cross-file) |
 
