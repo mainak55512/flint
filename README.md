@@ -34,20 +34,20 @@ Instead of writing hundreds of lines of complex `CMakeLists.txt` or Makefile glu
 
 ## Features
 
-- **Cargo-Like Simplicity:** Build, sync dependencies, and execute code in a single command.
+- **Cargo-Like Simplicity:** Build, sync dependencies, and execute code in a single command. Flint automatically discovers all the source, headers, static and shared libraries to build artifacts.
 - **Git-Native Package Management:** Fetch dependencies directly into standard subdirectories using Git URLs.
 - **Version & Commit Pinning:** Lock dependencies by release tag, branch, or exact commit hash.
 - **Single Manifest (`composition.json`):** One human-readable file replaces entire build script directory structures.
 - **Chert Compositions:** Instant compatibility layer for standard C/C++ repositories without a native `composition.json`.
-- **Global `VERSION` Macro:** Automatically inject project version headers into C/C++ source code during compilation.
-- **Convention Over Configuration:** Clean standard directory layout (`src/`, `include/`, `deps/`).
+- **Global `PROJECT_VERSION` Macro:** Automatically inject project version headers into C/C++ source code during compilation.
+- **Convention Over Configuration:** Clean standard directory layout (`src/`, `include/`, `deps/`). Flint now supports flexible directory structures.
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- **OS:** Linux *(Beta)*
+- **OS:** Linux or macOS *(Beta)*
 - **Compiler:** `gcc` or `clang`
 - **Tool:** `git`
 
@@ -108,8 +108,6 @@ my_project/
   "executable": true,
   "flags": ["-Wall", "-O2"],
   "lib_links": [],
-  "include_paths": ["include"],
-  "src": ["src"],
   "dependencies": {
     "example_lib": {
       "version": "1.0.0",
