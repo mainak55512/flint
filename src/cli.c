@@ -18,9 +18,12 @@ static const CommandHelp commands[] = {
 	{"deps", "List dependencies"},
 	{"version", "Print current version of flint"},
 	{"help", "List all available flint commands"},
+	{"cache", "clear cache of the project"},
 };
 
-void print_version_details() { printf("\nVersion: %s\n", STR(VERSION)); }
+void print_version_details() {
+	printf("\nVersion: %s\n", STR(PROJECT_VERSION));
+}
 
 void print_help_message() {
 	/*
@@ -124,6 +127,9 @@ int cli(int argc, char *argv[], Arena *global_str_arena) {
 		return 0;
 	} else if (STR_CMP(opt, "version") == 0) {
 		print_version_details();
+		return 0;
+	} else if (STR_CMP(opt, "cache") == 0) {
+		clear_cache();
 		return 0;
 	} else {
 		printf("Unknown command: %s\n", opt);
