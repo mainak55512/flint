@@ -260,7 +260,9 @@ String *build_project(Arena *global_str_arena) {
 
 	printf("[+] Gathering Resources\n");
 	yyjson_read_err err;
-	yyjson_doc *doc = yyjson_read_file("./composition.json", 0, NULL, &err);
+	yyjson_read_flag flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
+	yyjson_doc *doc = yyjson_read_file("./composition.json", flg, NULL, &err);
 
 	if (!doc) {
 		fprintf(stderr, "Read error: %s\n", err.msg);

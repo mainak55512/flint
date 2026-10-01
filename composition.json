@@ -1,9 +1,12 @@
 {
+    // Project configuration
     "project_name": "flint",
     "project_language": "c",
     "version": "v0.5.5",
     "compiler_path": "/usr/bin/clang-18",
     "executable": true,
+
+    // Build flags
     "flags": [
         "-O3",
         "-fstack-protector-strong",
@@ -11,17 +14,13 @@
         "-Wno-unused-command-line-argument",
         "-s"
     ],
-    "static_lib": [
-        "static"
-    ],
-    "shared_lib": [
-        "shared"
-    ],
-    "lib_links": [],
-    "excludes": [],
+
+    // Excluded directories
     "exclude_dirs": [
         "build"
     ],
+
+    // Dependencies
     "dependencies": {
         "arena": {
             "version": "v0.1.1",
@@ -44,6 +43,5 @@
             "remote": "https://github.com/mainak55512/Cmap",
             "hash": "5827928228c9d2c44eacbe44b4457b496554be57"
         }
-    },
-    "tmpl": []
+    }
 }

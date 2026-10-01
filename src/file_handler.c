@@ -588,5 +588,6 @@ void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 void clear_cache() {
 	Arena *arena = arena_init(2048);
 	remove_directory(arena, "build/.cache");
+	printf("[✓] Cache cleared");
 	arena_free(&arena);
 }

@@ -33,12 +33,15 @@ void sync_dependency() {
 	char *myBuildConfigFile = "composition.json";
 	char *packageFile = "deps/.package";
 	yyjson_read_err err;
-	yyjson_doc *buildConf = yyjson_read_file(myBuildConfigFile, 0, NULL, &err);
+	yyjson_read_flag flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
+	yyjson_doc *buildConf =
+		yyjson_read_file(myBuildConfigFile, flg, NULL, &err);
 	if (!buildConf) {
 		fprintf(stderr, "Failed to read %s: %s\n", myBuildConfigFile, err.msg);
 		return;
 	}
-	yyjson_doc *packageConf = yyjson_read_file(packageFile, 0, NULL, &err);
+	yyjson_doc *packageConf = yyjson_read_file(packageFile, flg, NULL, &err);
 	if (!packageConf) {
 		fprintf(stderr, "Failed to read %s: %s\n", packageFile, err.msg);
 		yyjson_doc_free(buildConf);
@@ -139,8 +142,10 @@ void add_library(char *libURL) {
 		return;
 	}
 	yyjson_read_err err;
+	yyjson_read_flag flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
 	yyjson_doc *current_doc =
-		yyjson_read_file("./composition.json", 0, NULL, &err);
+		yyjson_read_file("./composition.json", flg, NULL, &err);
 	yyjson_val *current_root = yyjson_doc_get_root(current_doc);
 	yyjson_val *dependencies = yyjson_obj_get(current_root, "dependencies");
 	Vector *set = vector_init(char *);
@@ -155,7 +160,8 @@ void add_library(char *libURL) {
 		fetch_library(set, libURL, /*NULL, NULL, NULL, NULL, */ NULL, NULL, "",
 					  NULL, NULL, NULL, NULL, false);
 	}
-	yyjson_doc *package = yyjson_read_file("./deps/.package", 0, NULL, &err);
+
+	yyjson_doc *package = yyjson_read_file("./deps/.package", flg, NULL, &err);
 	yyjson_mut_doc *package_mut = yyjson_doc_mut_copy(package, NULL);
 	yyjson_doc_free(package);
 	yyjson_mut_val *root = yyjson_mut_doc_get_root(package_mut);
@@ -378,8 +384,10 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 		arena_free(&str_arena);
 		return;
 	}
+	yyjson_read_flag read_flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
 	yyjson_doc *current_doc =
-		yyjson_read_file("./composition.json", 0, NULL, &err);
+		yyjson_read_file("./composition.json", read_flg, NULL, &err);
 	yyjson_mut_doc *current_mut_doc = yyjson_doc_mut_copy(current_doc, NULL);
 
 	yyjson_mut_val *current_root = yyjson_mut_doc_get_root(current_mut_doc);
@@ -390,7 +398,7 @@ void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_flags,
 		str_arena, 3, "./deps/", lib_details->repo_name, "/composition.json");
 
 	yyjson_doc *dep_doc =
-		yyjson_read_file(string(dep_mybuild_path), 0, NULL, &err);
+		yyjson_read_file(string(dep_mybuild_path), read_flg, NULL, &err);
 
 	yyjson_val *dep_root = yyjson_doc_get_root(dep_doc);
 
@@ -585,7 +593,9 @@ void remove_library_partial(char *libURL) {
 	char *repo_name = get_repo_name(arena, libURL);
 
 	yyjson_read_err err;
-	yyjson_doc *package = yyjson_read_file("./deps/.package", 0, NULL, &err);
+	yyjson_read_flag flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
+	yyjson_doc *package = yyjson_read_file("./deps/.package", flg, NULL, &err);
 	yyjson_mut_doc *package_mut = yyjson_doc_mut_copy(package, NULL);
 	yyjson_doc_free(package);
 	yyjson_mut_val *root = yyjson_mut_doc_get_root(package_mut);
@@ -620,7 +630,10 @@ void remove_library_partial(char *libURL) {
 void remove_library(char *repo_name) {
 	Arena *local_arena = arena_init(1024);
 	yyjson_read_err err;
-	yyjson_doc *config = yyjson_read_file("./composition.json", 0, NULL, &err);
+	yyjson_read_flag read_flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
+	yyjson_doc *config =
+		yyjson_read_file("./composition.json", read_flg, NULL, &err);
 	yyjson_mut_doc *config_mut = yyjson_doc_mut_copy(config, NULL);
 	yyjson_doc_free(config);
 	yyjson_mut_val *root = yyjson_mut_doc_get_root(config_mut);
@@ -679,7 +692,10 @@ void remove_library(char *repo_name) {
 
 void list_deps() {
 	yyjson_read_err err;
-	yyjson_doc *config = yyjson_read_file("./composition.json", 0, NULL, &err);
+	yyjson_read_flag flg =
+		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
+	yyjson_doc *config =
+		yyjson_read_file("./composition.json", flg, NULL, &err);
 	if (!config) {
 		fprintf(stderr, "Failed to read composition.json: %s\n", err.msg);
 		return;
