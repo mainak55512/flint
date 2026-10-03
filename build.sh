@@ -2,18 +2,7 @@
 
 set -e
 
-REPO_URL="https://github.com/mainak55512/flint.git"
-
-ORIGINAL_DIR="$(pwd)"
-
 VERSION="v0.5.5"
-
-echo "* Checking dependencies..."
-
-if ! command -v git >/dev/null 2>&1; then
-    echo "! Error: 'git' is not installed or not found in your PATH." >&2
-    exit 1
-fi
 
 HAS_GCC=0
 HAS_CLANG=0
@@ -37,19 +26,7 @@ else
     exit 1
 fi
 
-TEMP_DIR=$(mktemp -d)
-
-cleanup() {
-    rm -rf "$TEMP_DIR"
-}
-trap cleanup EXIT
-
-echo "* Cloning Flint repository..."
-git clone --depth 1 "$REPO_URL" "$TEMP_DIR"
-cd "$TEMP_DIR"
-
 echo "* Compiling Flint (Release) using $COMPILER..."
-
 
 $COMPILER \
   -O3 \
@@ -94,7 +71,6 @@ case "$choice" in
         ;;
     *)
         echo "* Global installation skipped. Executable cleanup completed."
-        cp flint "$ORIGINAL_DIR/flint"
-        echo "* Executable saved to $ORIGINAL_DIR/flint"
+        echo "* Executable saved to current directory"
         ;;
 esac
