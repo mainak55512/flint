@@ -207,10 +207,10 @@ Honest status of the beta:
 
 Planned: 
 
-[ ] Support for windows
-[ ] Support for separate platform configurations
-[ ] Support for separate build profiles
-[ ] Support for test executions
+- [ ] Support for windows
+- [ ] Support for separate platform configurations
+- [ ] Support for separate build profiles
+- [ ] Support for test executions
 
 Feedback on which of these matters most is the most useful contribution right now.
 
