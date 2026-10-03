@@ -38,6 +38,7 @@ flint run                                               # build + execute
 - **Git is the package source.** Any repository with a tag or commit can be a dependency. No account, no registry to publish to.
 - **Commit-pinned dependencies.** Each dependency records a version (tag) and a commit `hash`, so builds do not silently change if a tag moves.
 - **Source discovery by convention.** Flint finds sources, headers, and static/shared libraries in the standard directories. No file lists to maintain.
+- **Incremental builds.** Flint checks whether the files are modified since the last build. If it is unchanged, flint skips compilation for that file.
 - **Editor support out of the box.** Flint generates `compile_commands.json`, so clangd, Neovim, Helix, and VS Code index your code and your dependencies.
 - **Small footprint.** Needs only `git` and `gcc` or `clang`. No Python, no Ninja, no CMake.
 - **Version header generation.** `PROJECT_VERSION` is injected into your build, and `.h.in` templates are processed natively.
