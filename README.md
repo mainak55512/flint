@@ -1,162 +1,225 @@
 <div align="center">
-<img src="./assets/flint.png" alt="Flint Logo" width="360">
+<img src="./assets/flint.png" alt="Flint Logo" width="320">
 <h1>Flint</h1>
-<p><b>The Cargo experience for C/C++—minimalist, Git-native, and CMake-free.</b></p> 
-<a href="https://mainak55512.github.io/flint-cherts/"><strong>CLI Docs</strong></a> | 
-<a href="https://mainak55512.github.io/flint-cherts/compositions/"><strong>Chert Compositions</strong></a>
-<br><br>
-  
-</div>
-<div align="center">
-  
-![Platform](https://img.shields.io/badge/platform-POSIX-blue?style=flat-square) ![Status](https://img.shields.io/badge/status-Beta-orange?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+<p><b>A small, Git-native build tool for C/C++. One manifest file, no CMake.</b></p>
+
+[![Status](https://img.shields.io/badge/status-beta-orange?style=flat-square)](#limitations-and-roadmap)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue?style=flat-square)](#install)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+
+[CLI Docs](https://mainak55512.github.io/flint-cherts/) · [Chert Compositions](https://mainak55512.github.io/flint-cherts/compositions/) · [Issues](https://github.com/mainak55512/flint/issues)
 
 </div>
 
 ---
 
-**Flint** brings the modern developer workflow of Rust’s `cargo` or Go modules to C and C++. 
+Flint builds C and C++ projects and fetches their dependencies straight from Git repositories. You describe the project in a single `composition.json` and Flint drives `gcc` or `clang` for you. There is no generator step and no runtime beyond `git` and a compiler.
 
-Instead of writing hundreds of lines of complex `CMakeLists.txt` or Makefile glue code, Flint manages dependencies directly from standard Git repositories and drives GCC/Clang compilers automatically through a single JSON manifest.
-
----
-
-## Demo
+Flint is written in C and builds itself with Flint (see its own [`composition.json`](./composition.json)).
 
 <div align="center">
-  <br />
   <img src="assets/demo.gif" alt="Flint Terminal Demo" width="85%" />
-  <p><sub><i>Flint initializing a workspace, fetching dependencies, and running a build.</i></sub></p>
-  <br />
 </div>
 
----
-
-## Features
-
-- **Cargo-Like Simplicity:** Build, sync dependencies, and execute code in a single command. Flint automatically discovers all the source, headers, static and shared libraries to build artifacts.
-- **Git-Native Package Management:** Fetch dependencies directly into standard subdirectories using Git URLs.
-- **Version & Commit Pinning:** Lock dependencies by release tag, branch, or exact commit hash.
-- **Single Manifest (`composition.json`):** One human-readable file replaces entire build script directory structures.
-- **Chert Compositions:** Instant compatibility layer for standard C/C++ repositories without a native `composition.json`.
-- **Global `PROJECT_VERSION` Macro:** Automatically inject project version headers into C/C++ source code during compilation.
-- **Convention Over Configuration:** Clean standard directory layout (`src/`, `include/`, `deps/`). Flint now supports flexible directory structures.
-
----
-
-## Quick Start
-
-### Prerequisites
-- **OS:** Linux or macOS *(Beta)*
-- **Compiler:** `gcc` or `clang`
-- **Tool:** `git`
-
-### 1. Installation
-
-Install via official script:
+## Try it in 60 seconds
 
 ```bash
-curl -fsSL -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/mainak55512/flint/contents/install.sh | bash
+mkdir hello && cd hello
+flint init                                              # creates composition.json and src/
+flint add https://github.com/mainak55512/Cmap@v0.1.1   # clones into deps/, pins the commit
+flint run                                               # build + execute
 ```
 
-Or build from source:
+`flint add` writes the dependency into your manifest, including the exact commit hash it resolved the tag to.
 
-Bash
+## Why Flint?
 
-```
+- **One manifest.** Name, compiler, flags, and dependencies live in one file.
+- **Git is the package source.** Any repository with a tag or commit can be a dependency. No account, no registry to publish to.
+- **Commit-pinned dependencies.** Each dependency records a version (tag) and a commit `hash`, so builds do not silently change if a tag moves.
+- **Source discovery by convention.** Flint finds sources, headers, and static/shared libraries in the standard directories. No file lists to maintain.
+- **Editor support out of the box.** Flint generates `compile_commands.json`, so clangd, Neovim, Helix, and VS Code index your code and your dependencies.
+- **Small footprint.** Needs only `git` and `gcc` or `clang`. No Python, no Ninja, no CMake.
+- **Version header generation.** `PROJECT_VERSION` is injected into your build, and `.h.in` templates are processed natively.
+
+## Install
+
+**Requirements:** `git`, and `gcc` or `clang`. Linux is the primary platform; macOS is in beta.
+
+<!-- Download a prebuilt binary from the [Releases](https://github.com/mainak55512/flint/releases) page and verify its checksum, or build from source: -->
+
+```bash
 git clone https://github.com/mainak55512/flint.git
-cd flint && ./install.sh
+cd flint && ./build.sh
 ```
 
-### 2. Quick Workflow
+If you prefer the one-line installer, read the script first:
 
 ```bash
-# Initialize a new C project workspace
-flint init
-
-# Add a Git dependency
-flint add https://github.com/user/example_lib@1.0.0
-
-# Compile and execute immediately
-flint run
-
+curl -fsSL -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/mainak55512/flint/contents/install.sh -o install.sh
+less install.sh && bash install.sh
 ```
 
-## Project Structure
+<!-- TODO: add checksummed release binaries and list build-from-source requirements -->
 
-Flint enforces a clean, zero-config directory model:
+## Project layout
+
+Flint expects a conventional layout (directory names are configurable, see the CLI docs):
 
 ```
 my_project/
-├── src/                # Source files (.c, .cpp)
-├── include/            # Local header files (.h, .hpp)
-├── deps/               # External dependencies (Managed by Flint)
-├── static/             # Static library files (.a)
-├── shared/             # Dynamic/Shared library files (.so)
-└── composition.json    # Project manifest & build configuration
-
+├── src/                # .c / .cpp sources
+├── include/            # your headers
+├── deps/               # dependencies (managed by Flint)
+├── static/             # prebuilt static libraries (.a)
+├── shared/             # prebuilt shared libraries (.so)
+└── composition.json    # manifest
 ```
 
-## Manifest Specification (`composition.json`)
+Anything listed in `exclude_dirs` is skipped during source discovery.
 
-```json
+## The manifest
+
+This is Flint's own manifest:
+
+```jsonc
 {
-  "project_name": "example_project",
-  "project_language": "c",
-  "version": "0.1.0",
-  "compiler_path": "/usr/bin/gcc",
-  "executable": true,
-  "flags": ["-Wall", "-O2"],
-  "lib_links": [],
-  "dependencies": {
-    "example_lib": {
-      "version": "1.0.0",
-      "remote": "https://github.com/user/example_lib.git"
-    }
-  }
-}
+    // Project configuration
+    "project_name": "flint",
+    "project_language": "c",
+    "version": "v0.5.5",
+    "compiler_path": "clang",
+    "executable": true,
 
+    // Build flags
+    "flags": ["-O3", "-fstack-protector-strong", "-D_FORTIFY_SOURCE=2", "-s"],
+
+    // Skipped during source discovery
+    "exclude_dirs": ["build"],
+
+    // Dependencies
+    "dependencies": {
+        "arena": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/arena",
+            "hash": "b1659723d4d45a7eba5a8b12648a22f0212da17e"
+        },
+        "CString": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/CString",
+            "hash": "a58d598a907596bac876dbbaa7482d0d2a7e91cc"
+        },
+        "container": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/container",
+            "hash": "c2a3a5af3f5ebe3f63cf540073021dde24e56e38"
+        },
+        "yyjson": {
+            "version": "0.12.0",
+            "remote": "https://github.com/ibireme/yyjson",
+            "hash": "8b4a38dc994a110abaec8a400615567bd996105f"
+        },
+        "Cmap": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/Cmap",
+            "hash": "5827928228c9d2c44eacbe44b4457b496554be57"
+        }
+    }
+}
 ```
 
-## How Flint Compares
-
-| Feature / Attribute | Flint | CMake + vcpkg | cmkr + FetchContent | Meson + WrapDB |
-|---|---|---|---|---|
-| Tool Architecture | Integrated Build System & PM | Meta-Build Generator + Standalone PM | Meta-Wrapper Generator (outputs CMakeLists.txt) | Meta-Build Generator + Package Resolver |
-| Runtime Dependencies | System git, gcc/clang | C++ runtime, git, build backend (ninja/make) | cmkr, CMake, git, build backend | Python 3, ninja, git |
-| Config Format | composition.json (JSON) | CMakeLists.txt + vcpkg.json (Custom DSL + JSON) | cmake.toml (TOML) | meson.build (Declarative DSL) |
-| Package Management Method | Git-native clones to deps/ via CLI (flint add) | Manifest/Port-tree repos & binary caching | CMake FetchContent (configure-time download) | Wrap files (.wrap) & WrapDB registry |
-| Non-Native Library Handling | Chert Compositions (custom specs for non-Flint repos) | vcpkg Port Overlay recipes | Requires manual CMake target wrapping | Meson Wrap subproject patches |
-| Incremental Build Engine | Native state/modification tracking | Delegated to backend (Ninja/Make) | Delegated to CMake backend | Delegated to Ninja | 
-| Directory Model | Flexible | Fully explicit & customisable | Explicit & customisable | Explicit & customisable |
-| Platform Support | Linux & macOS (Current) | Cross-Platform (Linux, macOS, Windows) | Cross-Platform (Linux, macOS, Windows) | Cross-Platform (Linux, macOS, Windows) |
-| Cross-Compilation | Flags passed to system compiler | Toolchain files (-DCMAKE_TOOLCHAIN_FILE) | Toolchain files via CMake | Cross-definition files (--cross-file) |
+| Field | Meaning |
+|---|---|
+| `project_name` | Name of the produced artifact |
+| `project_language` | `"c"` or `"cpp"` |
+| `version` | Project version, exposed as the `PROJECT_VERSION` macro |
+| `compiler_path` | Compiler executable to use |
+| `executable` | `true` for a program, `false` for a library |
+| `flags` | Flags passed to the compiler |
+| `lib_links` | Extra libraries to link |
+| `exclude_dirs` | Directories ignored during source discovery |
+| `dependencies` | Map of name to `version` (tag/branch), `remote` (Git URL), `hash` (exact commit) |
 
 
-## Community & Support
+## Template headers
 
--   **CLI Reference:** [Flint Documentation](https://mainak55512.github.io/flint-cherts/)    
-       
--   **Chert Packages:** [Flint Cherts Repository](https://mainak55512.github.io/flint-cherts/compositions/)
-             
--   **Bug Reports & Requests:** [GitHub Issues](https://github.com/mainak55512/flint/issues)
+Flint turns a *.h.in template into a header by replacing @KEY@ placeholders with the values in the manifest's tmpl block.
 
-### Package Discovery & Contributions
+`include/config.h.in:`
 
-When you create a new library project using **`flint`**, it is automatically designed to be modular and can be fetched directly by other projects via `flint add <repo_url>@<version>`.
+```c
+#define APP_NAME "@APP_NAME@"
+#define HAVE_STRLCPY @HAVE_STRLCPY@
+#define SIZEOF_LONG @SIZEOF_LONG@
+```
 
-If you are working with a **legacy or existing third-party C/C++ library** that doesn't natively support `flint`, you can still use it by defining a chert composition (`composition.json`). 
+`composition.json:`
 
-#### How to Contribute Legacy Libraries:
-We maintain a community repository of pre-made library compositions called **[flint-cherts](https://github.com/mainak55512/flint-cherts)**. 
+```jsonc
+{
+    "tmpl": {
+        "APP_NAME": "myapp",
+        "HAVE_STRLCPY": "0",
+        "SIZEOF_LONG": "8"
+    }
+}
+```
 
-If you write a `chert composition` for a popular C/C++ library, contributions to `flint-cherts` are highly appreciated! 
+`Generated include/config.h:`
 
-1. Check out the **[flint-cherts README Guide](https://github.com/mainak55512/flint-cherts)** to learn how to structure a `composition.json`.
-2. Submit a Pull Request with your library composition.
-3. Help the community seamlessly use legacy C/C++ packages without needing manual setup!
-    
-         
+```c
+#define APP_NAME "myapp"
+#define HAVE_STRLCPY 0
+#define SIZEOF_LONG 8
+```
+<!-- TODO: verify the exact key name, output location, whether values must be strings, and whether PROJECT_VERSION is available inside templates -->
+
+Because values are fixed in the manifest, Flint does not detect them for you. If a library needs different values on different systems, you set them yourself.
+
+
+## Using libraries that don't have a `composition.json`
+
+Most existing C/C++ libraries were not written for Flint. For those, Flint uses **chert compositions**: a `composition.json` maintained separately in the [flint-cherts](https://github.com/mainak55512/flint-cherts) repository that tells Flint how to build the library from source.
+
+Be aware of what this means:
+
+- It works best for libraries that are plain source trees: no code generation, no `configure` step, no platform probing.
+- Flint can generate headers from templates: it turns config.h.in into config.h by substituting @VARIABLE@ placeholders, the same convention autotools and CMake use. Libraries that only need a templated config header can work. Values are declared as key/value pairs in the tmpl block of the manifest. See Template headers.
+- flint-cherts is a community-maintained list of recipes, so in practice it plays the role of a small registry. Dependencies themselves still come from Git.
+
+<!-- TODO: state how many cherts exist today and show one non-trivial example (e.g. zlib or sqlite) -->
+
+**Use something else if** you need Windows, a large package ecosystem, binary caches, IDE-generated projects, or complex conditional builds. **Flint fits** small to medium projects where the build is "these sources plus these Git dependencies" and you want to stop maintaining build scripts.
+
+## Limitations and roadmap
+
+Honest status of the beta:
+
+- Platforms: Linux and macOS only. No Windows.
+- Cross-compilation: not first-class. You can point `compiler_path` at a cross compiler and pass flags.
+- Build profiles: a single `flags` list; no separate debug/release profiles yet.
+- Conditionals: no per-platform or per-option settings in the manifest.
+- Targets: one artifact per manifest.
+- Tests and install targets: not built in.
+- Build performance: Builds are incremental.
+- Auto-discovered `static/` and `shared/` libraries are linked as found, so keep those directories clean.
+
+Planned: 
+
+[] Support for windows
+[] Support for separate platform configurations
+[] Support for separate build profiles
+[] Support for test executions
+
+Feedback on which of these matters most is the most useful contribution right now.
+
+## Contributing
+
+- Report bugs and request features in [Issues](https://github.com/mainak55512/flint/issues).
+- Add a library by writing a chert composition: see the [flint-cherts guide](https://github.com/mainak55512/flint-cherts) and open a pull request.
+- Libraries built with Flint can be added by anyone with `flint add <repo_url>@<version>`.
+
 ## License
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+MIT. See [LICENSE](LICENSE).

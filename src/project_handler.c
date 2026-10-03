@@ -597,6 +597,7 @@ String *build_project(Arena *global_str_arena) {
 			vector_free(header_vec);
 			goto CLEANUP;
 		}
+		vector_free(header_vec);
 		printf("[✓] Executable ganerated\n");
 	} else {
 		String *archiever = get_archiever(str_arena);
