@@ -15,6 +15,8 @@
         "-s"
     ],
 
+    "excludes": ["src/config_refactor.c"],
+
     // Excluded directories
     "exclude_dirs": [
         "build"
