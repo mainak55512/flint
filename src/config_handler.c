@@ -188,11 +188,11 @@ int generate_compile_commands() {
 			fprintf(stderr,
 					"Error encountered while generating compile commands\n");
 			success = 0;
-			vector_free(include_paths);
-			vector_free(src_paths);
-			vector_free(source_files);
-			vector_free(static_libs);
-			vector_free(shared_libs);
+			vector_free(&include_paths);
+			vector_free(&src_paths);
+			vector_free(&source_files);
+			vector_free(&static_libs);
+			vector_free(&shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -202,11 +202,11 @@ int generate_compile_commands() {
 			fprintf(stderr,
 					"Error encountered while generating compile commands\n");
 			success = 0;
-			vector_free(include_paths);
-			vector_free(src_paths);
-			vector_free(source_files);
-			vector_free(static_libs);
-			vector_free(shared_libs);
+			vector_free(&include_paths);
+			vector_free(&src_paths);
+			vector_free(&source_files);
+			vector_free(&static_libs);
+			vector_free(&shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -222,11 +222,11 @@ int generate_compile_commands() {
 			fprintf(stderr,
 					"Error encountered while generating compile commands\n");
 			success = 0;
-			vector_free(include_paths);
-			vector_free(src_paths);
-			vector_free(source_files);
-			vector_free(static_libs);
-			vector_free(shared_libs);
+			vector_free(&include_paths);
+			vector_free(&src_paths);
+			vector_free(&source_files);
+			vector_free(&static_libs);
+			vector_free(&shared_libs);
 			yyjson_mut_doc_free(out_doc);
 			goto CLEANUP;
 		}
@@ -245,16 +245,16 @@ int generate_compile_commands() {
 			   length(source_files));
 	}*/
 
-	vector_free(include_paths);
-	vector_free(src_paths);
-	vector_free(source_files);
-	vector_free(static_libs);
-	vector_free(shared_libs);
+	vector_free(&include_paths);
+	vector_free(&src_paths);
+	vector_free(&source_files);
+	vector_free(&static_libs);
+	vector_free(&shared_libs);
 	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:
-	vector_free(exclude_paths);
-	vector_free(exclude_exception_paths);
+	vector_free(&exclude_paths);
+	vector_free(&exclude_exception_paths);
 	yyjson_doc_free(doc);
 	arena_free(&str_arena);
 
@@ -350,7 +350,7 @@ void _add_local(int lib_count, char **lib_link, char *element) {
 		fprintf(stderr, "Write error: %s\n", werr.msg);
 	}
 
-	vector_free(temp_vec);
+	vector_free(&temp_vec);
 	yyjson_mut_doc_free(mut_doc);
 	arena_free(&arena);
 }

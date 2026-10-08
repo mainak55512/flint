@@ -41,6 +41,6 @@ void replace_at_impl(Vector *vector, int pos, const void *value);
 int length(Vector *vector);
 
 // Frees underlying data structure
-void vector_free(Vector *vector);
+void vector_free(Vector **vector);
 
 #endif // CONTAINER_H

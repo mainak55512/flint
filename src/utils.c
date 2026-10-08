@@ -58,7 +58,7 @@ Vector *remove_excludes(Vector *collected, yyjson_val *excludes) {
 		}
 	}
 
-	vector_free(collected);
+	vector_free(&collected);
 	return vec;
 }
 
@@ -244,6 +244,7 @@ char *get_tag_from_hash(Arena *arena, const char *target_dir,
 		buffer[strcspn(buffer, "\r\n")] = '\0';
 
 		char *git_tag = arena_strdup(arena, buffer);
+		pclose(fp);
 		return git_tag;
 	}
 

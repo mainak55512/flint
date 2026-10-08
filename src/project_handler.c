@@ -418,14 +418,14 @@ String *build_project(Arena *global_str_arena) {
 				if (cmd_err) {
 					fprintf(stderr,
 							"Error encountered while adding static libs\n");
-					vector_free(header_vec);
-					vector_free(src_file_arr);
-					vector_free(stat_file_arr);
-					vector_free(shared_file_arr);
+					vector_free(&header_vec);
+					vector_free(&src_file_arr);
+					vector_free(&stat_file_arr);
+					vector_free(&shared_file_arr);
 					// vector_free(stat_dir_arr);
 					// vector_free(shared_dir_arr);
-					vector_free(static_lib_arr);
-					vector_free(shared_lib_arr);
+					vector_free(&static_lib_arr);
+					vector_free(&shared_lib_arr);
 					goto CLEANUP;
 				}
 			}
@@ -437,14 +437,14 @@ String *build_project(Arena *global_str_arena) {
 				at(char *, stat_file_arr, i), "\")")));
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered while adding static libs\n");
-				vector_free(header_vec);
-				vector_free(src_file_arr);
-				vector_free(stat_file_arr);
-				vector_free(shared_file_arr);
+				vector_free(&header_vec);
+				vector_free(&src_file_arr);
+				vector_free(&stat_file_arr);
+				vector_free(&shared_file_arr);
 				// vector_free(stat_dir_arr);
 				// vector_free(shared_dir_arr);
-				vector_free(static_lib_arr);
-				vector_free(shared_lib_arr);
+				vector_free(&static_lib_arr);
+				vector_free(&shared_lib_arr);
 				goto CLEANUP;
 			}
 		}
@@ -511,14 +511,14 @@ String *build_project(Arena *global_str_arena) {
 
 	if (create_append_err) {
 		fprintf(stderr, "Error encountered while generating `compile.rsp`\n");
-		vector_free(header_vec);
-		vector_free(src_file_arr);
-		vector_free(stat_file_arr);
-		vector_free(shared_file_arr);
+		vector_free(&header_vec);
+		vector_free(&src_file_arr);
+		vector_free(&stat_file_arr);
+		vector_free(&shared_file_arr);
 		// vector_free(stat_dir_arr);
 		// vector_free(shared_dir_arr);
-		vector_free(static_lib_arr);
-		vector_free(shared_lib_arr);
+		vector_free(&static_lib_arr);
+		vector_free(&shared_lib_arr);
 		goto CLEANUP;
 	}
 
@@ -560,14 +560,14 @@ String *build_project(Arena *global_str_arena) {
 			cmd_err = system(compilation_command);
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered at compilation\n");
-				vector_free(header_vec);
-				vector_free(src_file_arr);
-				vector_free(stat_file_arr);
-				vector_free(shared_file_arr);
+				vector_free(&header_vec);
+				vector_free(&src_file_arr);
+				vector_free(&stat_file_arr);
+				vector_free(&shared_file_arr);
 				// vector_free(stat_dir_arr);
 				// vector_free(shared_dir_arr);
-				vector_free(static_lib_arr);
-				vector_free(shared_lib_arr);
+				vector_free(&static_lib_arr);
+				vector_free(&shared_lib_arr);
 				goto CLEANUP;
 			}
 
@@ -575,13 +575,13 @@ String *build_project(Arena *global_str_arena) {
 		}
 	}
 
-	vector_free(src_file_arr);
-	vector_free(stat_file_arr);
-	vector_free(shared_file_arr);
+	vector_free(&src_file_arr);
+	vector_free(&stat_file_arr);
+	vector_free(&shared_file_arr);
 	// vector_free(stat_dir_arr);
 	// vector_free(shared_dir_arr);
-	vector_free(static_lib_arr);
-	vector_free(shared_lib_arr);
+	vector_free(&static_lib_arr);
+	vector_free(&shared_lib_arr);
 
 	String *output = string_concat_cstr(global_str_arena, 2, "./build/",
 										string(project_name));
@@ -594,16 +594,16 @@ String *build_project(Arena *global_str_arena) {
 
 		if (cmd_err) {
 			fprintf(stderr, "Error encountered while generating executable\n");
-			vector_free(header_vec);
+			vector_free(&header_vec);
 			goto CLEANUP;
 		}
-		vector_free(header_vec);
+		vector_free(&header_vec);
 		printf("[✓] Executable ganerated\n");
 	} else {
 		String *archiever = get_archiever(str_arena);
 		if (STR_CMP(string(archiever), "") == 0) {
 			printf("[x] No archiever found!\n");
-			vector_free(header_vec);
+			vector_free(&header_vec);
 			goto CLEANUP;
 		}
 
@@ -617,7 +617,7 @@ String *build_project(Arena *global_str_arena) {
 			if (errno != EEXIST) {
 				fprintf(stderr, "Error encountered while generating "
 								"library directories\n");
-				vector_free(header_vec);
+				vector_free(&header_vec);
 				goto CLEANUP;
 			}
 		}
@@ -630,7 +630,7 @@ String *build_project(Arena *global_str_arena) {
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating shared library\n");
-			vector_free(header_vec);
+			vector_free(&header_vec);
 			goto CLEANUP;
 		}
 		cmd_err = system(string(string_concat_cstr(
@@ -639,7 +639,7 @@ String *build_project(Arena *global_str_arena) {
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating static library\n");
-			vector_free(header_vec);
+			vector_free(&header_vec);
 			goto CLEANUP;
 		}
 
@@ -655,13 +655,13 @@ String *build_project(Arena *global_str_arena) {
 			copy_err = copy_file(src_path, dest_path_2);
 			if (copy_err) {
 				fprintf(stderr, "Error encountered while copying headers\n");
-				vector_free(header_vec);
+				vector_free(&header_vec);
 				goto CLEANUP;
 			}
 		}
 
 		printf("[✓] Libraries ganerated\n");
-		vector_free(header_vec);
+		vector_free(&header_vec);
 	}
 	if (require_version_update) {
 		update_version_file(version_str);
@@ -672,10 +672,10 @@ CLEANUP:
 	if (doc) {
 		yyjson_doc_free(doc);
 	}
-	vector_free(src_arr);
-	vector_free(header_arr);
-	vector_free(exclude_dirs);
-	vector_free(exclude_exception_dirs);
+	vector_free(&src_arr);
+	vector_free(&header_arr);
+	vector_free(&exclude_dirs);
+	vector_free(&exclude_exception_dirs);
 	arena_free(&str_arena);
 	return output;
 }

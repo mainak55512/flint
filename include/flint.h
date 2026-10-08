@@ -33,11 +33,47 @@
 
 #define BUFFER_SIZE 4096
 
+// typedef struct {
+// 	char *repo_name;
+// 	char *version;
+// 	char *hash;
+// } LibDetails;
+
 typedef struct {
 	char *repo_name;
-	char *version;
-	char *hash;
-} LibDetails;
+	String *version;
+	String *remote;
+	String *hash;
+} Dependency;
+
+typedef struct {
+	String *version;
+	String *hash;
+	String *remote;
+	Vector *flags;
+	Vector *lib_links;
+	Vector *excludes;
+	Vector *exclude_dirs;
+	Vector *exclude_exception;
+	Cmap *tmpl;
+} Sync_config;
+
+typedef struct {
+	String *project_name;
+	String *project_language;
+	String *compiler_path;
+	String *version;
+	bool executable;
+	Vector *flags;
+	Vector *lib_links;
+	Vector *excludes;
+	Vector *exclude_dirs;
+	Cmap *tmpl;
+	Cmap *dependencies;
+	Vector *exclude_exception;
+	Cmap *sync;
+	Arena *arena;
+} Config;
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -53,14 +89,9 @@ void create_my_build_config(char *config_file_path, char *project_name,
 int check_project_lang(char *lang);
 String *build_project(Arena *global_str_arena);
 
-// void fetch_library(Vector *v, char *libURL, yyjson_mut_val *sync_src,
-// 				   yyjson_mut_val *sync_include_paths,
-// 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
-// 				   yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,
-// 				   bool sync, const char *hash, yyjson_mut_val *sync_excludes);
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);
-LibDetails *clone_lib(Arena *arena, char *libURL, const char *hash);
+Dependency *clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
 int init_project();
 String *collect_src_files(Arena *str_arena, String *path);
@@ -77,13 +108,14 @@ char *get_lib_hash(Arena *arena, char *target_dir);
 char *arena_strdup(Arena *arena, const char *str);
 char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash);
-LibDetails *clone_lib_hashed(Arena *arena, const char *libURL,
-							 const char *ref_hash);
-void add_library(char *libURL);
+Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash);
+// void add_library(char *libURL);
+void add_lib(char *libURL);
 void remove_library_partial(char *libURL);
 void remove_library(char *repo_name);
 void run_project(Arena *global_str_arena);
-void sync_dependency();
+// void sync_dependency();
+void sync_lib();
 // void get_src_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
 // 				 yyjson_val *deps, String *cwd);
 // void get_header_vec(Arena *str_arena, Vector *source_files, yyjson_val *root,
@@ -131,10 +163,12 @@ void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
 void clear_cache();
 
-void fetch_library(Vector *v, char *libURL, /*yyjson_mut_val *sync_src,
-				   yyjson_mut_val *sync_include_paths,*/
-				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
-				   /*yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,*/
-				   const char *hash, yyjson_mut_val *sync_excludes,
-				   yyjson_mut_val *sync_exclude_dirs, yyjson_mut_val *sync_tmpl,
-				   yyjson_mut_val *sync_exclude_exception_dirs, bool sync);
+void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
+				   bool sync);
+// void fetch_library(Vector *v, char *libURL, /*yyjson_mut_val *sync_src,
+// 				   yyjson_mut_val *sync_include_paths,*/
+// 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
+// 				   /*yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,*/
+// 				   const char *hash, yyjson_mut_val *sync_excludes,
+// 				   yyjson_mut_val *sync_exclude_dirs, yyjson_mut_val *sync_tmpl,
+// 				   yyjson_mut_val *sync_exclude_exception_dirs, bool sync);

@@ -182,7 +182,10 @@ void replace_at_impl(Vector *vector, int pos, const void *value) {
 
 int length(Vector *vector) { return vector->length; }
 
-void vector_free(Vector *vector) {
-	mem_align_free(vector->items);
-	mem_align_free(vector);
+void vector_free(Vector **vector) {
+	if (vector != NULL && *vector != NULL) {
+		mem_align_free((*vector)->items);
+		mem_align_free(*vector);
+		*vector = NULL;
+	}
 }

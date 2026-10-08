@@ -162,7 +162,7 @@ void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 				append(char *, source_files, elem);
 			}
 		}
-		vector_free(src_temp_arr);
+		vector_free(&src_temp_arr);
 		// 	}
 		// }
 
