@@ -1,26 +1,4 @@
-#include "arena.h"
 #include <flint.h>
-
-bool starts_with(char *str, char *prefix) {
-	return strncmp(str, prefix, strlen(prefix)) == 0;
-}
-
-bool set_contains_str(Vector *v, String *elem) {
-	for (int i = 0; i < length(v); i++) {
-		if (STR_CMP(string(at(String *, v, i)), string(elem)) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-
-void set_add_str(Vector *v, String *elem) {
-	if (!set_contains_str(v, elem)) {
-		append(String *, v, elem);
-	}
-}
-
-char *safe_str(String *s) { return s ? string(s) : ""; }
 
 static String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key) {
 	yyjson_val *val = yyjson_obj_get(obj, key);
@@ -48,7 +26,6 @@ Cmap *read_lock_file() {
 
 	yyjson_doc *doc = yyjson_read_file("flint.lock", 0, NULL, NULL);
 	if (!doc) {
-		// fprintf(stderr, "Failed to read or parse JSON file.\n");
 		return lock;
 	}
 
@@ -113,20 +90,11 @@ void write_lock_file(Cmap *lock) {
 			vector_free(&dependency_keys);
 		}
 	}
-	// yyjson_mut_obj_add_val(doc, root, "dependencies", dependencies);
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY;
 	yyjson_write_err err;
 	bool success = yyjson_mut_write_file("flint.lock", doc, flg, NULL, &err);
 	map_free(lock);
 	yyjson_mut_doc_free(doc);
-}
-
-void update_package_file(yyjson_mut_doc *package) {
-	yyjson_write_err werr;
-	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./deps/.package", package, flg, NULL, &werr)) {
-		fprintf(stderr, "Write error: %s\n", werr.msg);
-	}
 }
 
 Vector *remove_arr_entry(Arena *arena, Vector *arr, char *search_str) {
@@ -646,7 +614,6 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 					if (dep_fetch->hash) {
 						hash = string(dep_fetch->hash);
 					}
-					// set_add_str(v, dep_fetch->remote);
 					fetch_library(current_config, modified_url, hash, lock,
 								  false);
 				}
@@ -667,7 +634,7 @@ void add_lib(char *libURL) {
 	if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
 		fetch_library(conf, libURL, "", lock, false);
 	} else {
-		printf("[x] Dependency already available, installation skipped\n");
+		printf("[*] Dependency already available, installation skipped...\n");
 	}
 
 	write_flint_composition("composition.json", conf);
@@ -704,6 +671,10 @@ void sync_lib() {
 				sync_exclude_exception(conf, dependency->exclude_exception,
 									   repo_name);
 				sync_tmpl(conf, dependency->tmpl);
+			} else {
+				printf(
+					"[*] Library '%s' already installed, hence skipping...\n",
+					repo_name);
 			}
 		}
 	}
@@ -722,14 +693,10 @@ void sync_lib() {
 					hash = string(dependency->hash);
 				}
 				fetch_library(conf, modified_url, hash, lock, true);
-
-				// sync_flags(conf, dependency->flags);
-				// sync_lib_links(conf, dependency->lib_links);
-				// sync_excludes(conf, dependency->excludes, repo_name);
-				// sync_exclude_dirs(conf, dependency->exclude_dirs, repo_name);
-				// sync_exclude_exception(conf, dependency->exclude_exception,
-				// 					   repo_name);
-				// sync_tmpl(conf, dependency->tmpl);
+			} else {
+				printf(
+					"[*] Library '%s' already installed, hence skipping...\n",
+					repo_name);
 			}
 		}
 	}
@@ -823,30 +790,16 @@ void remove_library(char *repo_name) {
 }
 
 void list_deps() {
-	yyjson_read_err err;
-	yyjson_read_flag flg =
-		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
-	yyjson_doc *config =
-		yyjson_read_file("./composition.json", flg, NULL, &err);
-	if (!config) {
-		fprintf(stderr, "Failed to read composition.json: %s\n", err.msg);
-		return;
-	}
-	yyjson_val *root = yyjson_doc_get_root(config);
-	yyjson_val *dependencies = yyjson_obj_get(root, "dependencies");
+	Config *conf = config_init();
+	read_flint_composition("composition.json", conf);
 
-	if (!dependencies || yyjson_obj_size(dependencies) == 0) {
-		printf("[x] No dependencies found\n");
-		yyjson_doc_free(config);
-		return;
+	Vector *dep_list = map_keys(conf->dependencies);
+	for (int i = 0; i < length(dep_list); i++) {
+		char *key = at(char *, dep_list, i);
+		Dependency *dep = (Dependency *)map_get(conf->dependencies, key);
+		printf("[*] %s: %s\n", key, string(dep->version));
 	}
+	vector_free(&dep_list);
 
-	int idx = 0, max = 0;
-	yyjson_val *key, *val;
-	yyjson_obj_foreach(dependencies, idx, max, key, val) {
-		char *version = (char *)yyjson_get_str(yyjson_obj_get(val, "version"));
-		printf("[*] %s: %s\n", yyjson_get_str(key), version);
-	}
-
-	yyjson_doc_free(config);
+	config_free(conf);
 }

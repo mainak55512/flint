@@ -1,12 +1,10 @@
 {
-    // Project configuration
-    "project_name": "flint",
+    "project_name": "flnt",
     "project_language": "c",
-    "version": "v0.5.9",
-    "compiler_path": "/usr/bin/clang-18",
+    "version": "v0.5.11",
+    "compiler_path": "clang",
     "executable": true,
 
-    // Build flags
     "flags": [
         "-O3",
         "-fstack-protector-strong",
@@ -17,12 +15,10 @@
 
     "excludes": ["src/config_refactor.c"],
 
-    // Excluded directories
     "exclude_dirs": [
         "build"
     ],
 
-    // Dependencies
     "dependencies": {
         "arena": {
             "version": "v0.1.1",

@@ -123,6 +123,7 @@ int init_project() {
 		}
 	}
 
+	/*
 	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *root = yyjson_mut_obj(doc);
 	yyjson_mut_doc_set_root(doc, root);
@@ -136,6 +137,7 @@ int init_project() {
 	}
 
 	yyjson_mut_doc_free(doc);
+	*/
 
 	isExec = STR_CMP(string(project_type), "lib") == 0 ? false : true;
 	if (isExec) {

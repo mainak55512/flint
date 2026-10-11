@@ -88,6 +88,14 @@ void create_my_build_config(char *config_file_path, char *project_name,
 							bool isExec);
 int check_project_lang(char *lang);
 String *build_project(Arena *global_str_arena);
+bool starts_with(char *str, char *prefix);
+bool set_contains_str(Vector *v, String *elem);
+void set_add_str(Vector *v, String *elem);
+char *safe_str(String *s);
+Config *config_init();
+void config_free(Config *conf);
+void read_flint_composition(char *composition_path, Config *conf);
+void write_flint_composition(char *composition_path, Config *conf);
 
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);

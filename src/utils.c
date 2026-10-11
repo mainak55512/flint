@@ -304,3 +304,24 @@ bool check_if_dep_path(const char *str) {
 
 	return strncmp(str, "deps", len_prefix) == 0;
 }
+
+bool starts_with(char *str, char *prefix) {
+	return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
+bool set_contains_str(Vector *v, String *elem) {
+	for (int i = 0; i < length(v); i++) {
+		if (STR_CMP(string(at(String *, v, i)), string(elem)) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void set_add_str(Vector *v, String *elem) {
+	if (!set_contains_str(v, elem)) {
+		append(String *, v, elem);
+	}
+}
+
+char *safe_str(String *s) { return s ? string(s) : ""; }
