@@ -163,12 +163,5 @@ void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
 void clear_cache();
 
-void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
+void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync);
-// void fetch_library(Vector *v, char *libURL, /*yyjson_mut_val *sync_src,
-// 				   yyjson_mut_val *sync_include_paths,*/
-// 				   yyjson_mut_val *sync_flags, yyjson_mut_val *sync_lib_links,
-// 				   /*yyjson_mut_val *sync_stat, yyjson_mut_val *sync_shared,*/
-// 				   const char *hash, yyjson_mut_val *sync_excludes,
-// 				   yyjson_mut_val *sync_exclude_dirs, yyjson_mut_val *sync_tmpl,
-// 				   yyjson_mut_val *sync_exclude_exception_dirs, bool sync);

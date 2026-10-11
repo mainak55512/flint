@@ -1,7 +1,124 @@
+#include "arena.h"
 #include <flint.h>
 
 bool starts_with(char *str, char *prefix) {
 	return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
+bool set_contains_str(Vector *v, String *elem) {
+	for (int i = 0; i < length(v); i++) {
+		if (STR_CMP(string(at(String *, v, i)), string(elem)) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void set_add_str(Vector *v, String *elem) {
+	if (!set_contains_str(v, elem)) {
+		append(String *, v, elem);
+	}
+}
+
+char *safe_str(String *s) { return s ? string(s) : ""; }
+
+static String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key) {
+	yyjson_val *val = yyjson_obj_get(obj, key);
+	const char *str = yyjson_get_str(val);
+	return str ? string_from(arena, (char *)str) : NULL;
+}
+
+Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key) {
+	yyjson_val *arr = yyjson_obj_get(obj, key);
+	Vector *target_vec = vector_init(String *);
+	size_t idx, max;
+	yyjson_val *val;
+	if (yyjson_is_arr(arr)) {
+		yyjson_arr_foreach(arr, idx, max, val) {
+			const char *s = yyjson_get_str(val);
+			if (s)
+				append(String *, target_vec, string_from(arena, (char *)s));
+		}
+	}
+	return target_vec;
+}
+
+Cmap *read_lock_file() {
+	Cmap *lock = map_init();
+
+	yyjson_doc *doc = yyjson_read_file("flint.lock", 0, NULL, NULL);
+	if (!doc) {
+		// fprintf(stderr, "Failed to read or parse JSON file.\n");
+		return lock;
+	}
+
+	yyjson_val *root = yyjson_doc_get_root(doc);
+	yyjson_val *key, *val;
+	size_t idx, max;
+
+	if (yyjson_is_obj(root)) {
+		yyjson_obj_foreach(root, idx, max, key, val) {
+			Dependency *dep = arena_alloc(lock->arena, sizeof(Dependency));
+			dep->version = safe_get_string(lock->arena, val, "version");
+			dep->remote = safe_get_string(lock->arena, val, "remote");
+			dep->hash = safe_get_string(lock->arena, val, "hash");
+			map_add(lock, yyjson_get_str(key), dep);
+		}
+	}
+
+	yyjson_doc_free(doc);
+
+	return lock;
+}
+
+bool lock_contains(Cmap *lock, char *libURL) {
+	if (map_len(lock)) {
+		char *repo_name = get_repo_name(lock->arena, libURL);
+		Dependency *lock_entry = map_get(lock, repo_name);
+		if (lock_entry) {
+			if (STR_CMP(string(lock_entry->remote), libURL) == 0) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void write_lock_file(Cmap *lock) {
+	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+	yyjson_mut_val *root = yyjson_mut_obj(doc);
+	yyjson_mut_doc_set_root(doc, root);
+	if (lock) {
+		Vector *dependency_keys = map_keys(lock);
+		if (dependency_keys) {
+			for (int i = 0; i < length(dependency_keys); i++) {
+				char *key = at(char *, dependency_keys, i);
+				if (!key)
+					continue;
+
+				Dependency *elem = (Dependency *)map_get(lock, key);
+				if (!elem)
+					continue;
+
+				yyjson_mut_val *dep_obj = yyjson_mut_obj(doc);
+				yyjson_mut_obj_add_strcpy(doc, dep_obj, "version",
+										  safe_str(elem->version));
+				yyjson_mut_obj_add_strcpy(doc, dep_obj, "remote",
+										  safe_str(elem->remote));
+				yyjson_mut_obj_add_strcpy(doc, dep_obj, "hash",
+										  safe_str(elem->hash));
+
+				yyjson_mut_obj_add_val(doc, root, key, dep_obj);
+			}
+			vector_free(&dependency_keys);
+		}
+	}
+	// yyjson_mut_obj_add_val(doc, root, "dependencies", dependencies);
+	yyjson_write_flag flg = YYJSON_WRITE_PRETTY;
+	yyjson_write_err err;
+	bool success = yyjson_mut_write_file("flint.lock", doc, flg, NULL, &err);
+	map_free(lock);
+	yyjson_mut_doc_free(doc);
 }
 
 void update_package_file(yyjson_mut_doc *package) {
@@ -12,20 +129,22 @@ void update_package_file(yyjson_mut_doc *package) {
 	}
 }
 
-void remove_arr_entry(yyjson_mut_val *arr, char *search_str) {
-	if (!yyjson_mut_is_arr(arr) || !search_str)
-		return;
+Vector *remove_arr_entry(Arena *arena, Vector *arr, char *search_str) {
+	if (!arr)
+		return NULL;
+	if (!length(arr) || !search_str)
+		return arr;
 
-	size_t count = yyjson_mut_arr_size(arr);
-	for (size_t i = count; i > 0; i--) {
-		size_t idx = i - 1;
-		yyjson_mut_val *val = yyjson_mut_arr_get(arr, idx);
-		const char *str = yyjson_mut_get_str(val);
+	Vector *new_vec = vector_init(String *);
+	for (size_t i = 0; i < length(arr); i++) {
+		String *str = at(String *, arr, i);
 
-		if (str && starts_with((char *)str, search_str)) {
-			yyjson_mut_arr_remove(arr, idx);
+		if (str && !starts_with(string(str), search_str)) {
+			append(String *, new_vec, string_clone(arena, str));
 		}
 	}
+	vector_free(&arr);
+	return new_vec;
 }
 
 Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
@@ -123,21 +242,6 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	return lib_details;
 }
 
-bool set_contains_str(Vector *v, String *elem) {
-	for (int i = 0; i < length(v); i++) {
-		if (STR_CMP(string(at(String *, v, i)), string(elem)) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-
-void set_add_str(Vector *v, String *elem) {
-	if (!set_contains_str(v, elem)) {
-		append(String *, v, elem);
-	}
-}
-
 Config *config_init() {
 	Arena *arena = arena_init(1024 * 1024);
 	Config *conf = arena_alloc(arena, sizeof(Config));
@@ -214,27 +318,6 @@ void config_free(Config *conf) {
 	}
 	Arena *arena_to_free = conf->arena;
 	arena_free(&arena_to_free);
-}
-
-static String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key) {
-	yyjson_val *val = yyjson_obj_get(obj, key);
-	const char *str = yyjson_get_str(val);
-	return str ? string_from(arena, (char *)str) : NULL;
-}
-
-Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key) {
-	yyjson_val *arr = yyjson_obj_get(obj, key);
-	Vector *target_vec = vector_init(String *);
-	size_t idx, max;
-	yyjson_val *val;
-	if (yyjson_is_arr(arr)) {
-		yyjson_arr_foreach(arr, idx, max, val) {
-			const char *s = yyjson_get_str(val);
-			if (s)
-				append(String *, target_vec, string_from(arena, (char *)s));
-		}
-	}
-	return target_vec;
 }
 
 void read_flint_composition(char *composition_path, Config *conf) {
@@ -323,8 +406,6 @@ void read_flint_composition(char *composition_path, Config *conf) {
 
 	yyjson_doc_free(doc);
 }
-
-char *safe_str(String *s) { return s ? string(s) : ""; }
 
 void write_flint_composition(char *composition_path, Config *conf) {
 	if (!conf || !composition_path)
@@ -510,11 +591,13 @@ void sync_tmpl(Config *conf, Cmap *tmpl) {
 void update_dependency_map(Config *conf, Dependency *lib) {
 	map_add(conf->dependencies, lib->repo_name, lib);
 }
+void update_lock(Cmap *lock, Dependency *lib) {
+	map_add(lock, lib->repo_name, lib);
+}
 
-void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
+void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync) {
 	Dependency *lib_details = clone_lib(current_config->arena, libURL, hash);
-	printf("Cloned Lib\n");
 
 	if (lib_details == NULL) {
 		return;
@@ -525,9 +608,8 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
 	entry->version = lib_details->version;
 	entry->hash = lib_details->hash;
 
+	update_lock(lock, entry);
 	update_dependency_map(current_config, entry);
-
-	printf("Dependency map updated\n");
 
 	String *config_path =
 		string_concat_cstr(current_config->arena, 3, "./deps/",
@@ -539,8 +621,6 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
 	if (is_mybuild_config_present(string(config_path))) {
 		Config *dep_config = config_init();
 		read_flint_composition(string(config_path), dep_config);
-
-		printf("dependency config read\n");
 
 		sync_flags(current_config, dep_config->flags);
 		sync_lib_links(current_config, dep_config->lib_links);
@@ -554,12 +634,11 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
 							   lib_details->repo_name);
 
 		if (map_len(dep_config->dependencies)) {
-			printf("Dep dependencies present\n");
 			Vector *dep_dependencies = map_keys(dep_config->dependencies);
 			for (int i = 0; i < length(dep_dependencies); i++) {
 				Dependency *dep_fetch = (Dependency *)map_get(
 					dep_config->dependencies, at(char *, dep_dependencies, i));
-				if (!set_contains_str(v, dep_fetch->remote)) {
+				if (!lock_contains(lock, string(dep_fetch->remote))) {
 					char *modified_url = string(string_concat_cstr(
 						current_config->arena, 3, string(dep_fetch->remote),
 						"@", string(dep_fetch->version)));
@@ -567,8 +646,9 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Vector *v,
 					if (dep_fetch->hash) {
 						hash = string(dep_fetch->hash);
 					}
-					set_add_str(v, dep_fetch->remote);
-					fetch_library(current_config, modified_url, hash, v, false);
+					// set_add_str(v, dep_fetch->remote);
+					fetch_library(current_config, modified_url, hash, lock,
+								  false);
 				}
 			}
 
@@ -582,47 +662,32 @@ void add_lib(char *libURL) {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
 
-	Vector *v = vector_init(String *);
-	Vector *dep_keys = map_keys(conf->dependencies);
-	for (int i = 0; i < length(dep_keys); i++) {
-		Dependency *elem =
-			(Dependency *)map_get(conf->dependencies, at(char *, dep_keys, i));
-		set_add_str(v, string_clone(conf->arena, elem->remote));
-	}
-	vector_free(&dep_keys);
+	Cmap *lock = read_lock_file();
 
-	if (!set_contains_str(
-			v,
-			string_from(conf->arena, get_modified_url(conf->arena, libURL)))) {
-		fetch_library(conf, libURL, "", v, false);
+	if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
+		fetch_library(conf, libURL, "", lock, false);
 	} else {
 		printf("[x] Dependency already available, installation skipped\n");
 	}
 
 	write_flint_composition("composition.json", conf);
-	vector_free(&v);
+	write_lock_file(lock);
 	config_free(conf);
 }
 
 void sync_lib() {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
-	Vector *v = vector_init(String *);
-	Vector *dep_keys = map_keys(conf->dependencies);
-	for (int i = 0; i < length(dep_keys); i++) {
-		Dependency *elem =
-			(Dependency *)map_get(conf->dependencies, at(char *, dep_keys, i));
-		set_add_str(v, string_clone(conf->arena, elem->remote));
-	}
+	Cmap *lock = read_lock_file();
 	Vector *sync_keys = map_keys(conf->sync);
+	Vector *dep_keys = map_keys(conf->dependencies);
 
 	if (length(sync_keys)) {
 		for (int i = 0; i < length(sync_keys); i++) {
 			char *repo_name = at(char *, sync_keys, i);
 			Sync_config *dependency =
 				(Sync_config *)map_get(conf->sync, at(char *, sync_keys, i));
-			if (!set_contains_str(v, dependency->remote)) {
-				printf("Contains url: %s\n", string(dependency->remote));
+			if (!lock_contains(lock, string(dependency->remote))) {
 				char *modified_url = string(string_concat_cstr(
 					conf->arena, 3, string(dependency->remote), "@",
 					string(dependency->version)));
@@ -630,8 +695,7 @@ void sync_lib() {
 				if (dependency->hash) {
 					hash = string(dependency->hash);
 				}
-				set_add_str(v, dependency->remote);
-				fetch_library(conf, modified_url, hash, v, true);
+				fetch_library(conf, modified_url, hash, lock, true);
 
 				sync_flags(conf, dependency->flags);
 				sync_lib_links(conf, dependency->lib_links);
@@ -642,116 +706,119 @@ void sync_lib() {
 				sync_tmpl(conf, dependency->tmpl);
 			}
 		}
-	} else {
-		printf("[x] Dependency already available, installation skipped\n");
 	}
+
+	if (length(dep_keys)) {
+		for (int i = 0; i < length(dep_keys); i++) {
+			char *repo_name = at(char *, dep_keys, i);
+			Dependency *dependency = (Dependency *)map_get(
+				conf->dependencies, at(char *, dep_keys, i));
+			if (!lock_contains(lock, string(dependency->remote))) {
+				char *modified_url = string(string_concat_cstr(
+					conf->arena, 3, string(dependency->remote), "@",
+					string(dependency->version)));
+				char *hash = "";
+				if (dependency->hash) {
+					hash = string(dependency->hash);
+				}
+				fetch_library(conf, modified_url, hash, lock, true);
+
+				// sync_flags(conf, dependency->flags);
+				// sync_lib_links(conf, dependency->lib_links);
+				// sync_excludes(conf, dependency->excludes, repo_name);
+				// sync_exclude_dirs(conf, dependency->exclude_dirs, repo_name);
+				// sync_exclude_exception(conf, dependency->exclude_exception,
+				// 					   repo_name);
+				// sync_tmpl(conf, dependency->tmpl);
+			}
+		}
+	}
+
 	write_flint_composition("composition.json", conf);
+	write_lock_file(lock);
 	vector_free(&sync_keys);
-	vector_free(&v);
 	vector_free(&dep_keys);
 	config_free(conf);
 }
 
-void remove_library_partial(char *libURL) {
+void remove_library_partial(char *repo_name) {
+	Cmap *lock = read_lock_file();
+
 	Arena *arena = arena_init(1024);
+	remove_directory(
+		arena, string(string_concat_cstr(arena, 2, "./deps/", repo_name)));
+	arena_free(&arena);
 
-	char *repo_name = get_repo_name(arena, libURL);
+	Cmap *new_lock = map_init();
 
-	yyjson_read_err err;
-	yyjson_read_flag flg =
-		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
-	yyjson_doc *package = yyjson_read_file("./deps/.package", flg, NULL, &err);
-	yyjson_mut_doc *package_mut = yyjson_doc_mut_copy(package, NULL);
-	yyjson_doc_free(package);
-	yyjson_mut_val *root = yyjson_mut_doc_get_root(package_mut);
-	yyjson_mut_val *package_arr = yyjson_mut_obj_get(root, "packages");
-	Vector *set = vector_init(char *);
+	Vector *dep_list = map_keys(lock);
 
-	yyjson_mut_val *val;
-	size_t idx, max;
-
-	yyjson_mut_arr_foreach(package_arr, idx, max, val) {
-		if (STR_CMP(yyjson_mut_get_str(val), libURL) != 0) {
-			set_add(set, (char *)yyjson_mut_get_str(val));
+	for (int i = 0; i < length(dep_list); i++) {
+		char *key = at(char *, dep_list, i);
+		if (STR_CMP(key, repo_name) != 0) {
+			Dependency *old_dep = (Dependency *)map_get(lock, key);
+			Dependency *new_dep =
+				arena_alloc(new_lock->arena, sizeof(Dependency));
+			new_dep->version = string_clone(new_lock->arena, old_dep->version);
+			new_dep->remote = string_clone(new_lock->arena, old_dep->remote);
+			new_dep->hash = string_clone(new_lock->arena, old_dep->hash);
+			map_add(new_lock, at(char *, dep_list, i), new_dep);
 		}
 	}
 
-	yyjson_mut_arr_clear(package_arr);
-
-	for (int i = 0; i < length(set); i++) {
-		char *item = at(char *, set, i);
-		yyjson_mut_arr_add_str(package_mut, package_arr, item);
-	}
-
-	update_package_file(package_mut);
-
-	remove_directory(
-		arena, string(string_concat_cstr(arena, 2, "./deps/", repo_name)));
-
-	yyjson_mut_doc_free(package_mut);
-	arena_free(&arena);
+	write_lock_file(new_lock);
+	vector_free(&dep_list);
+	map_free(lock);
 }
 
 void remove_library(char *repo_name) {
-	Arena *local_arena = arena_init(1024);
-	yyjson_read_err err;
-	yyjson_read_flag read_flg =
-		YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_TRAILING_COMMAS;
-	yyjson_doc *config =
-		yyjson_read_file("./composition.json", read_flg, NULL, &err);
-	yyjson_mut_doc *config_mut = yyjson_doc_mut_copy(config, NULL);
-	yyjson_doc_free(config);
-	yyjson_mut_val *root = yyjson_mut_doc_get_root(config_mut);
+	Config *conf = config_init();
+	read_flint_composition("composition.json", conf);
 
-	yyjson_mut_val *dependencies = yyjson_mut_obj_get(root, "dependencies");
+	Dependency *element = (Dependency *)map_get(conf->dependencies, repo_name);
 
-	yyjson_mut_val *element = yyjson_mut_obj_get(dependencies, repo_name);
-
-	char *repo_url = NULL;
-
-	if (element && yyjson_mut_is_obj(element)) {
-		repo_url =
-			(char *)yyjson_mut_get_str(yyjson_mut_obj_get(element, "remote"));
-	} else {
+	if (!element) {
+		config_free(conf);
 		printf("[x] No dependency named '%s' found\n", repo_name);
 		return;
 	}
 
 	printf("[+] Removing '%s'...\n", repo_name);
 
-	remove_library_partial(repo_url);
-
-	yyjson_mut_obj_remove_key(dependencies, repo_name);
-
-	yyjson_mut_val *include_arr = yyjson_mut_obj_get(root, "include_paths");
-	yyjson_mut_val *src_arr = yyjson_mut_obj_get(root, "src");
-	yyjson_mut_val *static_lib_arr = yyjson_mut_obj_get(root, "static_lib");
-	yyjson_mut_val *shared_lib_arr = yyjson_mut_obj_get(root, "shared_lib");
-	yyjson_mut_val *excludes_arr = yyjson_mut_obj_get(root, "excludes");
-	yyjson_mut_val *exclude_dir_arr = yyjson_mut_obj_get(root, "exclude_dirs");
-	yyjson_mut_val *exclude_exception_dir_arr =
-		yyjson_mut_obj_get(root, "exclude_exception");
+	remove_library_partial(repo_name);
 
 	char *search_str =
-		string(string_concat_cstr(local_arena, 2, "deps/", repo_name));
+		string(string_concat_cstr(conf->arena, 2, "deps/", repo_name));
 
-	remove_arr_entry(include_arr, search_str);
-	remove_arr_entry(src_arr, search_str);
-	remove_arr_entry(static_lib_arr, search_str);
-	remove_arr_entry(shared_lib_arr, search_str);
-	remove_arr_entry(excludes_arr, search_str);
-	remove_arr_entry(exclude_dir_arr, search_str);
-	remove_arr_entry(exclude_exception_dir_arr, search_str);
+	conf->excludes = remove_arr_entry(conf->arena, conf->excludes, search_str);
+	conf->exclude_dirs =
+		remove_arr_entry(conf->arena, conf->exclude_dirs, search_str);
+	conf->exclude_exception =
+		remove_arr_entry(conf->arena, conf->exclude_exception, search_str);
 
-	yyjson_write_err werr;
-	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./composition.json", config_mut, flg, NULL,
-							   &werr)) {
-		fprintf(stderr, "Write error: %s\n", werr.msg);
+	Vector *dep_list = map_keys(conf->dependencies);
+	Cmap *new_dep_map = map_init();
+
+	for (int i = 0; i < length(dep_list); i++) {
+		char *key = at(char *, dep_list, i);
+		if (STR_CMP(key, repo_name) != 0) {
+			Dependency *old_dep =
+				(Dependency *)map_get(conf->dependencies, key);
+			Dependency *new_dep = arena_alloc(conf->arena, sizeof(Dependency));
+			new_dep->version = string_clone(conf->arena, old_dep->version);
+			new_dep->remote = string_clone(conf->arena, old_dep->remote);
+			new_dep->hash = string_clone(conf->arena, old_dep->hash);
+			map_add(new_dep_map, at(char *, dep_list, i), new_dep);
+		}
 	}
 
-	yyjson_mut_doc_free(config_mut);
-	arena_free(&local_arena);
+	map_free(conf->dependencies);
+	conf->dependencies = new_dep_map;
+
+	write_flint_composition("composition.json", conf);
+
+	vector_free(&dep_list);
+	config_free(conf);
 	printf("[✓] Done!\n");
 }
 
