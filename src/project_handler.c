@@ -62,42 +62,40 @@ String *get_archiever(Arena *arena) {
 
 int init_project() {
 	struct STAT info;
-	Arena *str_arena;
-	String *dep_dir, *project_name, *project_dir, *project_lang, *dep_incl,
-		*dep_lib, *compiler_path, *project_type;
-	int ret, dir_create_status = 0, file_create_status = 0;
+	int ret = 0, dir_create_status = 0, file_create_status = 0;
 	bool isExec;
-
-	isExec = true;
-	ret = 0;
-
 	if (file_exists("./composition.json")) {
 		printf("[!] Flint Chert already initiated!");
 		return ret;
 	}
+	Config *conf = config_init();
 
-	str_arena = arena_init(1024);
+	isExec = true;
+
 	printf("[+] Bootstrapping New Project...\n");
 	printf("[?] Project Name: ");
-	project_name = string_trim(str_arena, string_get(str_arena));
+	conf->project_name = string_trim(conf->arena, string_get(conf->arena));
 
-	project_dir = string_from(str_arena, ".");
+	String *project_dir = string_from(conf->arena, ".");
 
 	printf("[?] Language (c/c++) [default: c]: ");
-	project_lang = string_trim(str_arena, string_get(str_arena));
+	conf->project_language = string_trim(conf->arena, string_get(conf->arena));
+	if (STR_CMP(string(conf->project_language), "") == 0) {
+		conf->project_language = string_from(conf->arena, "c");
+	}
 
 	printf("[?] Project type (exec/lib) [default: exec]: ");
-	project_type = string_trim(str_arena, string_get(str_arena));
+	String *project_type = string_trim(conf->arena, string_get(conf->arena));
 
 	printf("[?] Compiler path [default: gcc]: ");
-	compiler_path = string_trim(str_arena, string_get(str_arena));
+	conf->compiler_path = string_trim(conf->arena, string_get(conf->arena));
 
-	if (STR_CMP(string(compiler_path), "") == 0) {
-		compiler_path = string_from(str_arena, "gcc");
+	if (STR_CMP(string(conf->compiler_path), "") == 0) {
+		conf->compiler_path = string_from(conf->arena, "gcc");
 	}
-	if (!check_available_tool(string(compiler_path))) {
+	if (!check_available_tool(string(conf->compiler_path))) {
 		fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
-				string(compiler_path));
+				string(conf->compiler_path));
 		ret = 1;
 		goto CLEANUP;
 	}
@@ -113,7 +111,8 @@ int init_project() {
 		goto CLEANUP;
 	}
 
-	dep_dir = string_concat_cstr(str_arena, 2, string(project_dir), "/deps");
+	String *dep_dir =
+		string_concat_cstr(conf->arena, 2, string(project_dir), "/deps");
 
 	if (!directory_exists(string(dep_dir))) {
 		dir_create_status = MAKE_DIR(string(dep_dir));
@@ -123,32 +122,16 @@ int init_project() {
 		}
 	}
 
-	/*
-	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
-	yyjson_mut_val *root = yyjson_mut_obj(doc);
-	yyjson_mut_doc_set_root(doc, root);
-	yyjson_mut_val *initial_package = yyjson_mut_arr(doc);
-	yyjson_mut_obj_add_val(doc, root, "packages", initial_package);
-
-	yyjson_write_err werr;
-	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./deps/.package", doc, flg, NULL, &werr)) {
-		fprintf(stderr, "Write error: %s\n", werr.msg);
-	}
-
-	yyjson_mut_doc_free(doc);
-	*/
-
 	isExec = STR_CMP(string(project_type), "lib") == 0 ? false : true;
 	if (isExec) {
 		String *src_dir =
-			string_concat_cstr(str_arena, 2, string(project_dir), "/src");
+			string_concat_cstr(conf->arena, 2, string(project_dir), "/src");
 		if (!directory_exists(string(src_dir))) {
 			dir_create_status = MAKE_DIR(string(src_dir));
 		}
 	} else {
 		String *lib_dir =
-			string_concat_cstr(str_arena, 2, string(project_dir), "/lib");
+			string_concat_cstr(conf->arena, 2, string(project_dir), "/lib");
 		if (!directory_exists(string(lib_dir))) {
 			dir_create_status = MAKE_DIR(string(lib_dir));
 		}
@@ -160,11 +143,11 @@ int init_project() {
 	}
 
 	char *init_incl_dir = string(
-		string_concat_cstr(str_arena, 2, string(project_dir), "/include"));
+		string_concat_cstr(conf->arena, 2, string(project_dir), "/include"));
 	char *init_static_dir = string(
-		string_concat_cstr(str_arena, 2, string(project_dir), "/static"));
+		string_concat_cstr(conf->arena, 2, string(project_dir), "/static"));
 	char *init_shared_dir = string(
-		string_concat_cstr(str_arena, 2, string(project_dir), "/shared"));
+		string_concat_cstr(conf->arena, 2, string(project_dir), "/shared"));
 
 	if (!directory_exists(init_incl_dir)) {
 		dir_create_status = MAKE_DIR(init_incl_dir);
@@ -181,13 +164,14 @@ int init_project() {
 		goto CLEANUP;
 	}
 
-	switch (check_project_lang(string(project_lang))) {
+	switch (check_project_lang(string(conf->project_language))) {
 	case 0: {
 		char *file_name;
-		file_name =
-			isExec ? "./src/main.cpp"
-				   : string(string_concat_cstr(str_arena, 3, "./lib/",
-											   string(project_name), ".cpp"));
+		file_name = isExec
+						? "./src/main.cpp"
+						: string(string_concat_cstr(conf->arena, 3, "./lib/",
+													string(conf->project_name),
+													".cpp"));
 		if (!file_exists(file_name)) {
 			file_create_status = create_append_file(
 				file_name,
@@ -200,7 +184,7 @@ int init_project() {
 			goto CLEANUP;
 		}
 		char *header_file = string(string_concat_cstr(
-			str_arena, 3, "./include/", string(project_name), ".hpp"));
+			conf->arena, 3, "./include/", string(conf->project_name), ".hpp"));
 
 		if (!file_exists(header_file)) {
 			file_create_status = create_append_file(header_file, "");
@@ -210,15 +194,14 @@ int init_project() {
 			ret = 1;
 			goto CLEANUP;
 		}
-		create_my_build_config("./composition.json", string(project_name),
-							   "cpp", string(compiler_path), isExec);
 		break;
 	}
 	default: {
 		char *file_name =
-			isExec ? "./src/main.c"
-				   : string(string_concat_cstr(str_arena, 3, "./lib/",
-											   string(project_name), ".c"));
+			isExec
+				? "./src/main.c"
+				: string(string_concat_cstr(conf->arena, 3, "./lib/",
+											string(conf->project_name), ".c"));
 		if (!file_exists(file_name)) {
 			file_create_status = create_append_file(
 				file_name, "#include <stdio.h>\n\nint main() "
@@ -231,7 +214,7 @@ int init_project() {
 		}
 
 		char *header_file = string(string_concat_cstr(
-			str_arena, 3, "./include/", string(project_name), ".h"));
+			conf->arena, 3, "./include/", string(conf->project_name), ".h"));
 
 		if (!file_exists(header_file)) {
 			file_create_status = create_append_file(header_file, "");
@@ -241,18 +224,17 @@ int init_project() {
 			ret = 1;
 			goto CLEANUP;
 		}
-		create_my_build_config("./composition.json", string(project_name), "c",
-							   string(compiler_path), isExec);
 		break;
 	}
 	}
-
+	conf->version = string_from(conf->arena, "unknown");
+	write_flint_composition("composition.json", conf);
 	printf("[✓] Flint project '%s' successfully initiated\n",
-		   string(project_name));
+		   string(conf->project_name));
 	generate_compile_commands();
 
 CLEANUP:
-	arena_free(&str_arena);
+	config_free(conf);
 	return ret;
 }
 

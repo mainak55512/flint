@@ -96,6 +96,11 @@ Config *config_init();
 void config_free(Config *conf);
 void read_flint_composition(char *composition_path, Config *conf);
 void write_flint_composition(char *composition_path, Config *conf);
+String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key);
+Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key);
+Cmap *read_lock_file();
+bool lock_contains(Cmap *lock, char *libURL);
+void write_lock_file(Cmap *lock);
 
 bool set_contains(Vector *v, char *elem);
 void set_add(Vector *v, char *elem);

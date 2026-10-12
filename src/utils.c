@@ -325,3 +325,24 @@ void set_add_str(Vector *v, String *elem) {
 }
 
 char *safe_str(String *s) { return s ? string(s) : ""; }
+
+String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key) {
+	yyjson_val *val = yyjson_obj_get(obj, key);
+	const char *str = yyjson_get_str(val);
+	return str ? string_from(arena, (char *)str) : NULL;
+}
+
+Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key) {
+	yyjson_val *arr = yyjson_obj_get(obj, key);
+	Vector *target_vec = vector_init(String *);
+	size_t idx, max;
+	yyjson_val *val;
+	if (yyjson_is_arr(arr)) {
+		yyjson_arr_foreach(arr, idx, max, val) {
+			const char *s = yyjson_get_str(val);
+			if (s)
+				append(String *, target_vec, string_from(arena, (char *)s));
+		}
+	}
+	return target_vec;
+}
