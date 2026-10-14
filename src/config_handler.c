@@ -434,52 +434,52 @@ CLEANUP:
 	arena_free(&str_arena);
 }
 
-int generate_compile_commands() {
-	Arena *str_arena = arena_init(1024);
+int generate_compile_commands(Config *conf) {
+	// Arena *str_arena = arena_init(1024);
 	char *input_file = "composition.json";
 	char *output_file = "compile_commands.json";
 	int success = 1;
 
-	yyjson_read_err err;
-	yyjson_doc *doc = yyjson_read_file(input_file, 0, NULL, &err);
+	// yyjson_read_err err;
+	// yyjson_doc *doc = yyjson_read_file(input_file, 0, NULL, &err);
 
-	if (!doc) {
-		fprintf(stderr, "Failed to read %s: %s\n", input_file, err.msg);
-		// return -1;
-		success = 0;
-		goto CLEANUP;
-	}
+	// if (!doc) {
+	// 	fprintf(stderr, "Failed to read %s: %s\n", input_file, err.msg);
+	// 	// return -1;
+	// 	success = 0;
+	// 	goto CLEANUP;
+	// }
 
-	yyjson_val *root = yyjson_doc_get_root(doc);
+	// yyjson_val *root = yyjson_doc_get_root(doc);
 
-	yyjson_val *compiler_val = yyjson_obj_get(root, "compiler_path");
-	const char *compiler = yyjson_get_str(compiler_val);
-	String *cwd = get_current_working_dir(str_arena);
+	// yyjson_val *compiler_val = yyjson_obj_get(root, "compiler_path");
+	// const char *compiler = yyjson_get_str(compiler_val);
+	String *cwd = get_current_working_dir(conf->arena);
 
 	Vector *include_paths = vector_init(char *);
 	Vector *src_paths = vector_init(char *);
 	Vector *static_libs = vector_init(char *);
 	Vector *shared_libs = vector_init(char *);
-	Vector *exclude_paths = vector_init(char *);
-	Vector *exclude_exception_paths = vector_init(char *);
+	// Vector *exclude_paths = vector_init(char *);
+	// Vector *exclude_exception_paths = vector_init(char *);
 	size_t idx = 0, max = 0;
 	yyjson_val *val, *key;
-	yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
-	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
-		set_add(exclude_paths, (char *)yyjson_get_str(val));
-	}
-	yyjson_val *exclude_exception_json =
-		yyjson_obj_get(root, "exclude_exception");
-	yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
-		set_add(exclude_exception_paths, (char *)yyjson_get_str(val));
-	}
+	// yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
+	// yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
+	// 	set_add(exclude_paths, (char *)yyjson_get_str(val));
+	// }
+	// yyjson_val *exclude_exception_json =
+	// 	yyjson_obj_get(root, "exclude_exception");
+	// yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
+	// 	set_add(exclude_exception_paths, (char *)yyjson_get_str(val));
+	// }
 
-	traverse_dir(str_arena, string_from(str_arena, "."), src_paths,
-				 include_paths, static_libs, shared_libs, exclude_paths);
+	traverse_dir(conf->arena, string_from(conf->arena, "."), src_paths,
+				 include_paths, static_libs, shared_libs, conf->excludes);
 
-	for (int i = 0; i < length(exclude_exception_paths); i++) {
-		set_add(src_paths, at(char *, exclude_exception_paths, i));
-		set_add(include_paths, at(char *, exclude_exception_paths, i));
+	for (int i = 0; i < length(conf->exclude_exception); i++) {
+		set_add(src_paths, at(char *, conf->exclude_exception, i));
+		set_add(include_paths, at(char *, conf->exclude_exception, i));
 	}
 
 	/*
@@ -541,15 +541,15 @@ int generate_compile_commands() {
 	*/
 
 	Vector *source_files = vector_init(char *);
-	get_src_vec(str_arena, src_paths, source_files, root, cwd);
+	get_src_vec(conf, src_paths, source_files, cwd);
 
 	yyjson_mut_doc *out_doc = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *out_root = yyjson_mut_arr(out_doc);
 	yyjson_mut_doc_set_root(out_doc, out_root);
 
-	String *includes = string_from(str_arena, "");
+	String *includes = string_from(conf->arena, "");
 	for (size_t i = 0; i < length(include_paths); i++) {
-		includes = string_concat_cstr(str_arena, 3, string(includes), " -I",
+		includes = string_concat_cstr(conf->arena, 3, string(includes), " -I",
 									  at(char *, include_paths, i));
 	}
 
@@ -585,10 +585,11 @@ int generate_compile_commands() {
 			goto CLEANUP;
 		}
 
-		String *command = string_from(str_arena, "");
+		String *command = string_from(conf->arena, "");
 		command = string_concat_cstr(
-			str_arena, 7, (char *)compiler, " -c ", at(char *, source_files, i),
-			string(includes), " -o ", at(char *, source_files, i), ".o");
+			conf->arena, 7, string(conf->compiler_path), " -c ",
+			at(char *, source_files, i), string(includes), " -o ",
+			at(char *, source_files, i), ".o");
 
 		success =
 			yyjson_mut_obj_add_str(out_doc, entry, "command", string(command));
@@ -627,10 +628,10 @@ int generate_compile_commands() {
 	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:
-	vector_free(&exclude_paths);
-	vector_free(&exclude_exception_paths);
-	yyjson_doc_free(doc);
-	arena_free(&str_arena);
+	// vector_free(&exclude_paths);
+	// vector_free(&exclude_exception_paths);
+	// yyjson_doc_free(doc);
+	// arena_free(&str_arena);
 
 	return success ? 0 : -1;
 }

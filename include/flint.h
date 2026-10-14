@@ -112,7 +112,7 @@ String *collect_files(Arena *str_arena, String *path, String *type);
 Vector *string_split(Arena *arena, String *str, char sep);
 Vector *string_split_lines(Arena *arena, String *str);
 String *get_current_working_dir(Arena *arena);
-int generate_compile_commands();
+int generate_compile_commands(Config *conf);
 String *build_project(Arena *global_str_arena);
 char *get_repo_name(Arena *arena, const char *git_url);
 char *get_version_number(Arena *arena, const char *git_url);
@@ -152,7 +152,8 @@ bool check_if_dep_path(const char *str);
 int remove_directory(Arena *arena, const char *path);
 char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);
-Vector *remove_excludes(Vector *collected, yyjson_val *excludes);
+// Vector *remove_excludes(Vector *collected, yyjson_val *excludes);
+Vector *remove_excludes(Vector *collected, Vector *excludes);
 void list_deps();
 void expand_line(const char *src, FILE *out, yyjson_val *vars);
 int gen_header_from_tmpl(const char *in_path, const char *out_path);
@@ -166,15 +167,26 @@ void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 // void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 // 				   yyjson_val *root, /* yyjson_val *deps,*/ String *cwd,
 // 				   String *file_type);
-void get_src_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-				 yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
-void get_header_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-					yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
-void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-					  yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
-void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
+// void get_src_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+// 				 yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
+void get_src_vec(Config *conf, Vector *src_arr, Vector *source_files,
+				 String *cwd);
+// void get_header_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
+// 					yyjson_val *root, /* yyjson_val *deps,*/ String *cwd);
+void get_header_vec(Config *conf, Vector *header_arr, Vector *header_vec,
+					String *cwd);
+// void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector
+// *source_files, 					  yyjson_val *root, /* yyjson_val *deps,*/
+// String *cwd); void get_shared_lib_vec(Arena *str_arena, Vector *src_arr,
+// Vector
+// *source_files, 						yyjson_val *root, /* yyjson_val *deps,*/
+// String *cwd);
+void get_stat_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
+					  String *cwd);
+void get_shared_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
+						String *cwd);
 void clear_cache();
 
 void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync);
+String *join_vec_to_str(Arena *arena, Vector *v, String *sep);

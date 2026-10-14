@@ -244,6 +244,7 @@ void add_lib(char *libURL) {
 
 	write_flint_composition("composition.json", conf);
 	write_lock_file(lock);
+	generate_compile_commands(conf);
 	config_free(conf);
 }
 
@@ -298,10 +299,6 @@ void sync_lib() {
 					hash = string(dependency->hash);
 				}
 				fetch_library(conf, modified_url, hash, lock, true);
-			} else {
-				printf(
-					"[*] Library '%s' already installed, hence skipping...\n",
-					repo_name);
 			}
 		}
 	}
@@ -310,6 +307,7 @@ void sync_lib() {
 	write_lock_file(lock);
 	vector_free(&sync_keys);
 	vector_free(&dep_keys);
+	generate_compile_commands(conf);
 	config_free(conf);
 }
 
@@ -390,6 +388,7 @@ void remove_library(char *repo_name) {
 	write_flint_composition("composition.json", conf);
 
 	vector_free(&dep_list);
+	generate_compile_commands(conf);
 	config_free(conf);
 	printf("[✓] Done!\n");
 }

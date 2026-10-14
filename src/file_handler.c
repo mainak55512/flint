@@ -1,4 +1,3 @@
-#include "cstring.h"
 #include <flint.h>
 
 int create_append_file(char *file_path, char *content) {
@@ -40,11 +39,6 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 	struct dirent *entry;
 
 	dir = opendir(string(path));
-
-	// if (dir == NULL) {
-	// 	perror("Unable to open directory");
-	// 	return NULL;
-	// }
 
 	if (dir != NULL) {
 		while ((entry = readdir(dir)) != NULL) {
@@ -100,62 +94,19 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 	return src_files;
 }
 
-void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-				   yyjson_val *root, /* yyjson_val *deps,*/ String *cwd,
-				   String *file_type) {
-	String *retrieve_type = file_type;
+void get_files_vec(Config *conf, Vector *src_arr, Vector *source_files,
+				   String *cwd, String *file_type) {
 
-	if (STR_CMP(string(file_type), "header") == 0) {
-		retrieve_type = string_from(str_arena, "include_paths");
-	} else if (STR_CMP(string(file_type), "static") == 0) {
-		retrieve_type = string_from(str_arena, "static_lib");
-	} else if (STR_CMP(string(file_type), "dyn") == 0) {
-		retrieve_type = string_from(str_arena, "shared_lib");
-	} else {
-		retrieve_type = string_clone(str_arena, file_type);
-	}
-
-	yyjson_val *excludes = yyjson_obj_get(root, "excludes");
-
-	// yyjson_val *src_arr = yyjson_obj_get(root, string(retrieve_type));
-	// if (yyjson_is_arr(src_arr)) {
-	// 	yyjson_arr_iter iter;
-	// 	yyjson_arr_iter_init(src_arr, &iter);
-	// 	yyjson_val *val;
-	// while ((val = yyjson_arr_iter_next(&iter))) {
 	for (int i = 0; i < length(src_arr); i++) {
 		Vector *src_temp_arr;
 
-		/*
-		if (STR_CMP(string(retrieve_type), "src") == 0) {
-			src_temp_arr = remove_excludes(
-				string_split_lines(
-					str_arena,
-					collect_files(
-						str_arena,
-						// string_from(str_arena, (char *)yyjson_get_str(val)),
-						string_from(str_arena, at(char *, src_arr, i)),
-						string_from(str_arena, string(file_type)))),
-				excludes);
-		} else {
-			src_temp_arr = string_split_lines(
-				str_arena,
-				collect_files(
-					str_arena,
-					// string_from(str_arena, (char *)yyjson_get_str(val)),
-					string_from(str_arena, at(char *, src_arr, i)),
-					string_from(str_arena, string(file_type))));
-		}
-*/
 		src_temp_arr = remove_excludes(
 			string_split_lines(
-				str_arena,
-				collect_files(
-					str_arena,
-					// string_from(str_arena, (char *)yyjson_get_str(val)),
-					string_from(str_arena, at(char *, src_arr, i)),
-					string_from(str_arena, string(file_type)))),
-			excludes);
+				conf->arena,
+				collect_files(conf->arena,
+							  string_from(conf->arena, at(char *, src_arr, i)),
+							  string_from(conf->arena, string(file_type)))),
+			conf->excludes);
 		for (int i = 0; i < length(src_temp_arr); i++) {
 			char *elem = string(at(String *, src_temp_arr, i));
 			if (STR_CMP(elem, "") != 0) {
@@ -163,68 +114,30 @@ void get_files_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
 			}
 		}
 		vector_free(&src_temp_arr);
-		// 	}
-		// }
-
-		/*
-		if (yyjson_is_obj(deps) && yyjson_obj_size(deps) != 0) {
-			yyjson_obj_iter iter;
-			yyjson_obj_iter_init(deps, &iter);
-			yyjson_val *key, *dep_obj;
-			while ((key = yyjson_obj_iter_next(&iter))) {
-				dep_obj = yyjson_obj_iter_get_val(key);
-				const char *dep_name = yyjson_get_str(key);
-
-				yyjson_val *dep_src =
-					yyjson_obj_get(dep_obj, string(retrieve_type));
-				if (yyjson_is_arr(dep_src) && yyjson_arr_size(dep_src) != 0) {
-					yyjson_arr_iter src_iter;
-					yyjson_arr_iter_init(dep_src, &src_iter);
-					yyjson_val *src_val;
-					while ((src_val = yyjson_arr_iter_next(&src_iter))) {
-						String *path =
-							string_concat_cstr(str_arena, 5, string(cwd),
-											   "/deps/", (char *)dep_name, "/",
-											   (char *)yyjson_get_str(src_val));
-						Vector *src_temp_arr = string_split_lines(
-							str_arena,
-							collect_files(
-								str_arena, path,
-								string_from(str_arena, string(file_type))));
-						for (int i = 0; i < length(src_temp_arr); i++) {
-							char *elem = string(at(String *, src_temp_arr, i));
-							if (STR_CMP(elem, "") != 0) {
-								append(char *, source_files, elem);
-							}
-						}
-						vector_free(src_temp_arr);
-					}
-				}
-			}*/
 	}
 }
 
-void get_src_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-				 yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
-	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
-				  string_from(str_arena, "src"));
+void get_src_vec(Config *conf, Vector *src_arr, Vector *source_files,
+				 String *cwd) {
+	get_files_vec(conf, src_arr, source_files, cwd,
+				  string_from(conf->arena, "src"));
 }
 
-void get_header_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-					yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
-	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
-				  string_from(str_arena, "header"));
+void get_header_vec(Config *conf, Vector *src_arr, Vector *source_files,
+					String *cwd) {
+	get_files_vec(conf, src_arr, source_files, cwd,
+				  string_from(conf->arena, "header"));
 }
 
-void get_stat_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-					  yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
-	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
-				  string_from(str_arena, "static"));
+void get_stat_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
+					  String *cwd) {
+	get_files_vec(conf, src_arr, source_files, cwd,
+				  string_from(conf->arena, "static"));
 }
-void get_shared_lib_vec(Arena *str_arena, Vector *src_arr, Vector *source_files,
-						yyjson_val *root, /* yyjson_val *deps,*/ String *cwd) {
-	get_files_vec(str_arena, src_arr, source_files, root /*, deps*/, cwd,
-				  string_from(str_arena, "dyn"));
+void get_shared_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
+						String *cwd) {
+	get_files_vec(conf, src_arr, source_files, cwd,
+				  string_from(conf->arena, "dyn"));
 }
 
 long long get_file_modified_time(const char *path) {
@@ -523,7 +436,7 @@ int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
 	size_t dir_len = strlen(formatted_dir);
 
 	for (int i = 0; i < length(excludes_dirs); i++) {
-		const char *excluded = at(const char *, excludes_dirs, i);
+		const char *excluded = string(at(String *, excludes_dirs, i));
 		size_t ex_len = strlen(excluded);
 
 		if (ex_len == 0)

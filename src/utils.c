@@ -2,6 +2,21 @@
 #include "yyjson.h"
 #include <flint.h>
 
+String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
+	if (length(v) == 0)
+		return string_from(arena, "");
+	if (length(v) == 1)
+		return string_clone(arena, at(String *, v, 0));
+	String *output;
+	if (length(v) >= 2) {
+		output = at(String *, v, 0);
+		for (int i = 1; i < length(v); i++) {
+			output = string_concat(arena, 3, output, sep, at(String *, v, i));
+		}
+	}
+	return output;
+}
+
 const char *get_filename_without_path(const char *path) {
 	const char *last_slash = strrchr(path, '/');
 	const char *last_backslash = strrchr(path, '\\');
@@ -39,20 +54,29 @@ Vector *string_split(Arena *arena, String *str, char sep) {
 	return lines;
 }
 
-Vector *remove_excludes(Vector *collected, yyjson_val *excludes) {
+Vector *remove_excludes(Vector *collected, Vector *excludes) {
 	Vector *vec = vector_init(String *);
 
 	for (int i = 0; i < length(collected); i++) {
 		bool present = false;
-		size_t idx = 0, max = 0;
-		yyjson_val *val;
-		yyjson_arr_foreach(excludes, idx, max, val) {
+		// size_t idx = 0, max = 0;
+		// yyjson_val *val;
+		// yyjson_arr_foreach(excludes, idx, max, val) {
+		// 	if (STR_CMP(string(at(String *, collected, i)),
+		// 				yyjson_get_str(val)) == 0) {
+		// 		present = true;
+		// 		break;
+		// 	}
+		// }
+
+		for (int j = 0; j < length(excludes); j++) {
 			if (STR_CMP(string(at(String *, collected, i)),
-						yyjson_get_str(val)) == 0) {
+						string(at(String *, excludes, j))) == 0) {
 				present = true;
 				break;
 			}
 		}
+
 		if (!present) {
 			append(String *, vec, at(String *, collected, i));
 		}
