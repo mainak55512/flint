@@ -1,5 +1,53 @@
 #include <flint.h>
 
+// int check_available_tool(const char *cmd) {
+// 	const char *path = getenv("PATH");
+// 	const char *separator;
+// 	char candidate[4096];
+// 	size_t cmd_len = strlen(cmd);
+
+// 	if (strchr(cmd, '/')
+// #if defined(_WIN32)
+// 		|| strchr(cmd, '\\') || (cmd_len > 1 && cmd[1] == ':')
+// #endif
+// 	) {
+// #if defined(_WIN32)
+// 		return _access(cmd, 0) == 0;
+// #else
+// 		return access(cmd, X_OK) == 0;
+// #endif
+// 	}
+// 	if (!path || cmd_len == 0)
+// 		return 0;
+// 	while (*path) {
+// 		separator = strchr(path,
+// #if defined(_WIN32)
+// 						   ';'
+// #else
+// 						   ':'
+// #endif
+// 		);
+// 		size_t dir_len = separator ? (size_t)(separator - path) : strlen(path);
+// 		if (dir_len + cmd_len + 2 < sizeof(candidate)) {
+// 			if (dir_len == 0)
+// 				snprintf(candidate, sizeof(candidate), "./%s", cmd);
+// 			else
+// 				snprintf(candidate, sizeof(candidate), "%.*s/%s", (int)dir_len,
+// 						 path, cmd);
+// #if defined(_WIN32)
+// 			if (_access(candidate, 0) == 0)
+// #else
+// 			if (access(candidate, X_OK) == 0)
+// #endif
+// 				return 1;
+// 		}
+// 		if (!separator)
+// 			break;
+// 		path = separator + 1;
+// 	}
+// 	return 0;
+// }
+
 int check_available_tool(const char *cmd) {
 	const char *path = getenv("PATH");
 	const char *separator;
@@ -12,13 +60,19 @@ int check_available_tool(const char *cmd) {
 #endif
 	) {
 #if defined(_WIN32)
-		return _access(cmd, 0) == 0;
+		if (_access(cmd, 0) == 0)
+			return 1;
+		char test_path[4096];
+		snprintf(test_path, sizeof(test_path), "%s.exe", cmd);
+		return _access(test_path, 0) == 0;
 #else
 		return access(cmd, X_OK) == 0;
 #endif
 	}
+
 	if (!path || cmd_len == 0)
 		return 0;
+
 	while (*path) {
 		separator = strchr(path,
 #if defined(_WIN32)
@@ -28,18 +82,26 @@ int check_available_tool(const char *cmd) {
 #endif
 		);
 		size_t dir_len = separator ? (size_t)(separator - path) : strlen(path);
-		if (dir_len + cmd_len + 2 < sizeof(candidate)) {
+
+		if (dir_len + cmd_len + 5 < sizeof(candidate)) {
 			if (dir_len == 0)
 				snprintf(candidate, sizeof(candidate), "./%s", cmd);
 			else
 				snprintf(candidate, sizeof(candidate), "%.*s/%s", (int)dir_len,
 						 path, cmd);
+
 #if defined(_WIN32)
 			if (_access(candidate, 0) == 0)
+				return 1;
+
+			char test_path[4096];
+			snprintf(test_path, sizeof(test_path), "%s.exe", candidate);
+			if (_access(test_path, 0) == 0)
+				return 1;
 #else
 			if (access(candidate, X_OK) == 0)
-#endif
 				return 1;
+#endif
 		}
 		if (!separator)
 			break;
@@ -1124,6 +1186,24 @@ CLEANUP:
 }
 
 void run_project(Arena *global_str_arena) {
-	char *command = string(build_project(global_str_arena));
+	char *path_str = string(build_project(global_str_arena));
+
+	char command[4096];
+
+#if defined(_WIN32)
+	char abs_path[MAX_PATH];
+	if (_fullpath(abs_path, path_str, sizeof(abs_path)) != NULL) {
+		for (int i = 0; abs_path[i] != '\0'; i++) {
+			if (abs_path[i] == '/')
+				abs_path[i] = '\\';
+		}
+		snprintf(command, sizeof(command), "\"%s\"", abs_path);
+	} else {
+		snprintf(command, sizeof(command), "\"%s\"", path_str);
+	}
+#else
+	snprintf(command, sizeof(command), "\"%s\"", path_str);
+#endif
+
 	system(command);
 }
