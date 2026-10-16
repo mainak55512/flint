@@ -18,25 +18,77 @@ Vector *remove_arr_entry(Arena *arena, Vector *arr, char *search_str) {
 	return new_vec;
 }
 
+// Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char
+// *ref_hash) { 	Dependency *lib_details = 		(Dependency *)arena_alloc(arena,
+// sizeof(Dependency)); 	char *repo_name = get_repo_name(arena, libURL); 	char
+// *target_dir = 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+// 	char *sink_path = ">/dev/null 2>&1";
+// 	char *command = string(string_concat_cstr(
+// 		arena, 24, "mkdir -p ", target_dir, " ", sink_path, " && git -C ",
+// 		target_dir, " init ", sink_path, " && git -C ", target_dir,
+// 		" remote add origin ", libURL, " ", sink_path, " && git -C ",
+// 		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
+// 		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
+// 	if (system(command) >> 8 == 128) {
+// 		if (directory_exists(target_dir)) {
+// 			remove_directory(arena, target_dir);
+// 		}
+// 		return NULL;
+// 	}
+// 	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
+
+// 	lib_details->repo_name = repo_name;
+// 	lib_details->version = string_from(arena, tag);
+// 	lib_details->hash = string_from(arena, (char *)ref_hash);
+// 	lib_details->remote = string_from(arena, libURL);
+
+// 	printf("[*] Library: %s\n", lib_details->repo_name);
+// 	printf("[*] Version: %s\n", string(lib_details->version));
+// 	printf("[*] Hash: %s\n", string(lib_details->hash));
+// 	printf("[✓] Done!\n\n");
+// 	remove_directory(arena,
+// 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+// 	return lib_details;
+// }
+
 Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	Dependency *lib_details =
 		(Dependency *)arena_alloc(arena, sizeof(Dependency));
 	char *repo_name = get_repo_name(arena, libURL);
 	char *target_dir =
 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
-	char *sink_path = ">/dev/null 2>&1";
+
+	if (!directory_exists("./deps")) {
+		if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
+			return NULL;
+		}
+	}
+	if (!directory_exists(target_dir)) {
+		if (MAKE_DIR(target_dir) != 0 && errno != EEXIST) {
+			return NULL;
+		}
+	}
+
+#if defined(_WIN32)
+	const char *sink_path = ">NUL 2>&1";
+#else
+	const char *sink_path = ">/dev/null 2>&1";
+#endif
+
 	char *command = string(string_concat_cstr(
-		arena, 24, "mkdir -p ", target_dir, " ", sink_path, " && git -C ",
-		target_dir, " init ", sink_path, " && git -C ", target_dir,
-		" remote add origin ", libURL, " ", sink_path, " && git -C ",
-		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
-		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
-	if (system(command) >> 8 == 128) {
+		arena, 23, "git -C \"", target_dir, "\" init ", sink_path,
+		" && git -C \"", target_dir, "\" remote add origin \"", libURL, "\" ",
+		sink_path, " && git -C \"", target_dir,
+		"\" fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
+		" && git -C \"", target_dir, "\" checkout FETCH_HEAD ", sink_path));
+
+	if (system(command) != 0) {
 		if (directory_exists(target_dir)) {
 			remove_directory(arena, target_dir);
 		}
 		return NULL;
 	}
+
 	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
 
 	lib_details->repo_name = repo_name;
@@ -47,11 +99,71 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	printf("[*] Library: %s\n", lib_details->repo_name);
 	printf("[*] Version: %s\n", string(lib_details->version));
 	printf("[*] Hash: %s\n", string(lib_details->hash));
-	printf("[✓] Done!\n\n");
+	printf("[+] Done!\n\n");
 	remove_directory(arena,
 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
 	return lib_details;
 }
+
+// Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
+// 	char *version_number = get_version_number(arena, libURL);
+// 	if (version_number == NULL) {
+// 		printf("[x] Version details missing\n");
+// 		return NULL;
+// 	}
+// 	char *url = get_modified_url(arena, libURL);
+// 	char *repo_name = get_repo_name(arena, url);
+
+// 	if (url == NULL || repo_name == NULL) {
+// 		printf("[x] Invalid URL\n");
+// 		return NULL;
+// 	}
+
+// 	char *target_dir =
+// 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+// 	char *sink_path = ">/dev/null 2>&1";
+// 	printf("[+] Installing %s...\n", repo_name);
+// 	String *command;
+// 	// if (hash != NULL) {
+// 	if (STR_CMP(hash, "") == 0) {
+// 		if (STR_CMP(version_number, "unknown") == 0) {
+// 			command = string_concat_cstr(
+// 				arena, 4, "git clone --depth 1 --quiet ", url, " ", target_dir);
+// 		} else {
+// 			command = string_concat_cstr(
+// 				arena, 8, "git clone --depth 1 --quiet --branch ",
+// 				version_number, " ", url, " ", target_dir, " ", sink_path);
+// 		}
+// 	} else {
+// 		return clone_lib_hashed(arena, url, hash);
+// 	}
+// 	// }
+
+// 	if (system(string(command)) >> 8 == 128) {
+// 		if (directory_exists(target_dir)) {
+// 			remove_directory(arena, target_dir);
+// 		}
+// 		return NULL;
+// 	}
+
+// 	char *ref_hash = get_lib_hash(arena, target_dir);
+// 	char *fetched_version = get_tag_from_hash(arena, target_dir, ref_hash);
+// 	Dependency *lib_details =
+// 		(Dependency *)arena_alloc(arena, sizeof(Dependency));
+// 	lib_details->repo_name = repo_name;
+// 	lib_details->version = string_from(arena, fetched_version);
+// 	lib_details->hash = string_from(arena, ref_hash);
+// 	lib_details->remote = string_from(arena, url);
+
+// 	printf("[*] Library: %s\n", lib_details->repo_name);
+// 	printf("[*] Version: %s\n", string(lib_details->version));
+// 	printf("[*] Hash: %s\n", string(lib_details->hash));
+// 	printf("[✓] Done!\n\n");
+
+// 	remove_directory(arena,
+// 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+// 	return lib_details;
+// }
 
 Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	char *version_number = get_version_number(arena, libURL);
@@ -69,25 +181,37 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 
 	char *target_dir =
 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
-	char *sink_path = ">/dev/null 2>&1";
+
+#if defined(_WIN32)
+	const char *sink_path = ">NUL 2>&1";
+#else
+	const char *sink_path = ">/dev/null 2>&1";
+#endif
+
 	printf("[+] Installing %s...\n", repo_name);
 	String *command;
-	// if (hash != NULL) {
-	if (STR_CMP(hash, "") == 0) {
+
+	if (!hash || STR_CMP(hash, "") == 0) {
+		if (!directory_exists("./deps")) {
+			if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
+				return NULL;
+			}
+		}
 		if (STR_CMP(version_number, "unknown") == 0) {
 			command = string_concat_cstr(
-				arena, 4, "git clone --depth 1 --quiet ", url, " ", target_dir);
+				arena, 7, "git clone --depth 1 --quiet \"", url, "\" \"",
+				target_dir, "\" ", sink_path, "");
 		} else {
 			command = string_concat_cstr(
-				arena, 8, "git clone --depth 1 --quiet --branch ",
-				version_number, " ", url, " ", target_dir, " ", sink_path);
+				arena, 8, "git clone --depth 1 --quiet --branch \"",
+				version_number, "\" \"", url, "\" \"", target_dir, "\" ",
+				sink_path);
 		}
 	} else {
 		return clone_lib_hashed(arena, url, hash);
 	}
-	// }
 
-	if (system(string(command)) >> 8 == 128) {
+	if (system(string(command)) != 0) {
 		if (directory_exists(target_dir)) {
 			remove_directory(arena, target_dir);
 		}
@@ -106,7 +230,7 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	printf("[*] Library: %s\n", lib_details->repo_name);
 	printf("[*] Version: %s\n", string(lib_details->version));
 	printf("[*] Hash: %s\n", string(lib_details->hash));
-	printf("[✓] Done!\n\n");
+	printf("[+] Done!\n\n");
 
 	remove_directory(arena,
 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));

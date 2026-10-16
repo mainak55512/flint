@@ -374,172 +374,192 @@ void write_lock_file(Cmap *lock) {
 	yyjson_mut_doc_free(doc);
 }
 
-void create_my_build_config(char *config_file_path, char *project_name,
-							char *project_lang, char *compiler_path,
-							bool isExec) {
-	Arena *str_arena = arena_init(1024);
-	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
-	yyjson_mut_val *root = yyjson_mut_obj(doc);
-	yyjson_mut_doc_set_root(doc, root);
+// void create_my_build_config(char *config_file_path, char *project_name,
+// 							char *project_lang, char *compiler_path,
+// 							bool isExec) {
+// 	Arena *str_arena = arena_init(1024);
+// 	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+// 	yyjson_mut_val *root = yyjson_mut_obj(doc);
+// 	yyjson_mut_doc_set_root(doc, root);
 
-	yyjson_mut_obj_add_str(doc, root, "project_name", project_name);
-	yyjson_mut_obj_add_str(doc, root, "project_language", project_lang);
-	yyjson_mut_obj_add_str(doc, root, "compiler_path", compiler_path);
-	yyjson_mut_obj_add_str(doc, root, "version", "unknown");
-	yyjson_mut_obj_add_bool(doc, root, "executable", isExec);
+// 	yyjson_mut_obj_add_str(doc, root, "project_name", project_name);
+// 	yyjson_mut_obj_add_str(doc, root, "project_language", project_lang);
+// 	yyjson_mut_obj_add_str(doc, root, "compiler_path", compiler_path);
+// 	yyjson_mut_obj_add_str(doc, root, "version", "unknown");
+// 	yyjson_mut_obj_add_bool(doc, root, "executable", isExec);
 
-	// yyjson_mut_val *headers = yyjson_mut_arr(doc);
-	// yyjson_mut_val *sources = yyjson_mut_arr(doc);
-	yyjson_mut_val *flags = yyjson_mut_arr(doc);
-	yyjson_mut_val *lib_links = yyjson_mut_arr(doc);
-	yyjson_mut_val *static_lib = yyjson_mut_arr(doc);
-	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
-	yyjson_mut_val *excludes = yyjson_mut_arr(doc);
-	yyjson_mut_val *exclude_dirs = yyjson_mut_arr(doc);
-	yyjson_mut_val *tmpl = yyjson_mut_obj(doc);
+// 	// yyjson_mut_val *headers = yyjson_mut_arr(doc);
+// 	// yyjson_mut_val *sources = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *flags = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *lib_links = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *static_lib = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *shared_lib = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *excludes = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *exclude_dirs = yyjson_mut_arr(doc);
+// 	yyjson_mut_val *tmpl = yyjson_mut_obj(doc);
 
-	// if (isExec) {
-	// 	yyjson_mut_arr_add_str(doc, sources, "src");
-	// } else {
-	// 	yyjson_mut_arr_add_str(doc, sources, "lib");
-	// }
+// 	// if (isExec) {
+// 	// 	yyjson_mut_arr_add_str(doc, sources, "src");
+// 	// } else {
+// 	// 	yyjson_mut_arr_add_str(doc, sources, "lib");
+// 	// }
 
-	// yyjson_mut_arr_add_str(doc, static_lib, "static");
-	// yyjson_mut_arr_add_str(doc, shared_lib, "shared");
+// 	// yyjson_mut_arr_add_str(doc, static_lib, "static");
+// 	// yyjson_mut_arr_add_str(doc, shared_lib, "shared");
 
-	// yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
-	// yyjson_mut_obj_add_val(doc, root, "src", sources);
-	yyjson_mut_obj_add_val(doc, root, "flags", flags);
-	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
-	// yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
-	// yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
-	yyjson_mut_obj_add_val(doc, root, "excludes", excludes);
-	yyjson_mut_obj_add_val(doc, root, "exclude_dirs", exclude_dirs);
-	yyjson_mut_obj_add_val(doc, root, "tmpl", tmpl);
+// 	// yyjson_mut_obj_add_val(doc, root, "include_paths", headers);
+// 	// yyjson_mut_obj_add_val(doc, root, "src", sources);
+// 	yyjson_mut_obj_add_val(doc, root, "flags", flags);
+// 	yyjson_mut_obj_add_val(doc, root, "lib_links", lib_links);
+// 	// yyjson_mut_obj_add_val(doc, root, "static_lib", static_lib);
+// 	// yyjson_mut_obj_add_val(doc, root, "shared_lib", shared_lib);
+// 	yyjson_mut_obj_add_val(doc, root, "excludes", excludes);
+// 	yyjson_mut_obj_add_val(doc, root, "exclude_dirs", exclude_dirs);
+// 	yyjson_mut_obj_add_val(doc, root, "tmpl", tmpl);
 
-	// yyjson_mut_arr_add_str(doc, headers, "include");
-	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");
+// 	// yyjson_mut_arr_add_str(doc, headers, "include");
+// 	// yyjson_mut_arr_add_str(doc, headers, "./deps/include");
 
-	yyjson_mut_val *dependencies = yyjson_mut_obj(doc);
-	yyjson_mut_obj_add_val(doc, root, "dependencies", dependencies);
+// 	yyjson_mut_val *dependencies = yyjson_mut_obj(doc);
+// 	yyjson_mut_obj_add_val(doc, root, "dependencies", dependencies);
 
-	yyjson_write_err err;
-	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file(config_file_path, doc, flg, NULL, &err)) {
-		fprintf(stderr, "Write error: %s\n", err.msg);
-		goto CLEANUP;
-	}
-CLEANUP:
-	yyjson_mut_doc_free(doc);
-	arena_free(&str_arena);
-}
+// 	yyjson_write_err err;
+// 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
+// 	if (!yyjson_mut_write_file(config_file_path, doc, flg, NULL, &err)) {
+// 		fprintf(stderr, "Write error: %s\n", err.msg);
+// 		goto CLEANUP;
+// 	}
+// CLEANUP:
+// 	yyjson_mut_doc_free(doc);
+// 	arena_free(&str_arena);
+// }
+
+// int generate_compile_commands(Config *conf) {
+// 	char *input_file = "composition.json";
+// 	char *output_file = "compile_commands.json";
+// 	int success = 1;
+// 	String *cwd = get_current_working_dir(conf->arena);
+
+// 	Vector *include_paths = vector_init(char *);
+// 	Vector *src_paths = vector_init(char *);
+// 	Vector *static_libs = vector_init(char *);
+// 	Vector *shared_libs = vector_init(char *);
+// 	size_t idx = 0, max = 0;
+// 	yyjson_val *val, *key;
+// 	traverse_dir(conf->arena, string_from(conf->arena, "."), src_paths,
+// 				 include_paths, static_libs, shared_libs, conf->excludes);
+
+// 	for (int i = 0; i < length(conf->exclude_exception); i++) {
+// 		set_add(src_paths, at(char *, conf->exclude_exception, i));
+// 		set_add(include_paths, at(char *, conf->exclude_exception, i));
+// 	}
+// 	Vector *source_files = vector_init(char *);
+// 	get_src_vec(conf, src_paths, source_files, cwd);
+
+// 	yyjson_mut_doc *out_doc = yyjson_mut_doc_new(NULL);
+// 	yyjson_mut_val *out_root = yyjson_mut_arr(out_doc);
+// 	yyjson_mut_doc_set_root(out_doc, out_root);
+
+// 	String *includes = string_from(conf->arena, "");
+// 	for (size_t i = 0; i < length(include_paths); i++) {
+// 		includes = string_concat_cstr(conf->arena, 3, string(includes), " -I",
+// 									  at(char *, include_paths, i));
+// 	}
+
+// 	for (size_t i = 0; i < length(source_files); i++) {
+// 		yyjson_mut_val *entry = yyjson_mut_arr_add_obj(out_doc, out_root);
+
+// 		success =
+// 			yyjson_mut_obj_add_str(out_doc, entry, "directory", string(cwd));
+// 		if (!success) {
+// 			fprintf(stderr,
+// 					"Error encountered while generating compile commands\n");
+// 			success = 0;
+// 			vector_free(&include_paths);
+// 			vector_free(&src_paths);
+// 			vector_free(&source_files);
+// 			vector_free(&static_libs);
+// 			vector_free(&shared_libs);
+// 			yyjson_mut_doc_free(out_doc);
+// 			goto CLEANUP;
+// 		}
+// 		success = yyjson_mut_obj_add_str(out_doc, entry, "file",
+// 										 at(char *, source_files, i));
+// 		if (!success) {
+// 			fprintf(stderr,
+// 					"Error encountered while generating compile commands\n");
+// 			success = 0;
+// 			vector_free(&include_paths);
+// 			vector_free(&src_paths);
+// 			vector_free(&source_files);
+// 			vector_free(&static_libs);
+// 			vector_free(&shared_libs);
+// 			yyjson_mut_doc_free(out_doc);
+// 			goto CLEANUP;
+// 		}
+
+// 		String *command = string_from(conf->arena, "");
+// 		command = string_concat_cstr(
+// 			conf->arena, 7, string(conf->compiler_path), " -c ",
+// 			at(char *, source_files, i), string(includes), " -o ",
+// 			at(char *, source_files, i), ".o");
+
+// 		success =
+// 			yyjson_mut_obj_add_str(out_doc, entry, "command", string(command));
+// 		if (!success) {
+// 			fprintf(stderr,
+// 					"Error encountered while generating compile commands\n");
+// 			success = 0;
+// 			vector_free(&include_paths);
+// 			vector_free(&src_paths);
+// 			vector_free(&source_files);
+// 			vector_free(&static_libs);
+// 			vector_free(&shared_libs);
+// 			yyjson_mut_doc_free(out_doc);
+// 			goto CLEANUP;
+// 		}
+// 	}
+
+// 	yyjson_write_err write_err;
+// 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
+// 	success =
+// 		yyjson_mut_write_file(output_file, out_doc, flg, NULL, &write_err);
+
+// 	if (!success) {
+// 		fprintf(stderr, "Failed to write %s: %s\n", output_file, write_err.msg);
+// 	}
+// 	vector_free(&include_paths);
+// 	vector_free(&src_paths);
+// 	vector_free(&source_files);
+// 	vector_free(&static_libs);
+// 	vector_free(&shared_libs);
+// 	yyjson_mut_doc_free(out_doc);
+
+// CLEANUP:
+// 	return success ? 0 : -1;
+// }
 
 int generate_compile_commands(Config *conf) {
-	// Arena *str_arena = arena_init(1024);
-	char *input_file = "composition.json";
+	// char *input_file = "composition.json";
 	char *output_file = "compile_commands.json";
 	int success = 1;
-
-	// yyjson_read_err err;
-	// yyjson_doc *doc = yyjson_read_file(input_file, 0, NULL, &err);
-
-	// if (!doc) {
-	// 	fprintf(stderr, "Failed to read %s: %s\n", input_file, err.msg);
-	// 	// return -1;
-	// 	success = 0;
-	// 	goto CLEANUP;
-	// }
-
-	// yyjson_val *root = yyjson_doc_get_root(doc);
-
-	// yyjson_val *compiler_val = yyjson_obj_get(root, "compiler_path");
-	// const char *compiler = yyjson_get_str(compiler_val);
 	String *cwd = get_current_working_dir(conf->arena);
 
 	Vector *include_paths = vector_init(char *);
 	Vector *src_paths = vector_init(char *);
 	Vector *static_libs = vector_init(char *);
 	Vector *shared_libs = vector_init(char *);
-	// Vector *exclude_paths = vector_init(char *);
-	// Vector *exclude_exception_paths = vector_init(char *);
 	size_t idx = 0, max = 0;
 	yyjson_val *val, *key;
-	// yyjson_val *exclude_dir_json = yyjson_obj_get(root, "exclude_dirs");
-	// yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
-	// 	set_add(exclude_paths, (char *)yyjson_get_str(val));
-	// }
-	// yyjson_val *exclude_exception_json =
-	// 	yyjson_obj_get(root, "exclude_exception");
-	// yyjson_arr_foreach(exclude_dir_json, idx, max, val) {
-	// 	set_add(exclude_exception_paths, (char *)yyjson_get_str(val));
-	// }
-
 	traverse_dir(conf->arena, string_from(conf->arena, "."), src_paths,
-				 include_paths, static_libs, shared_libs, conf->excludes);
+				 include_paths, static_libs, shared_libs, conf->exclude_dirs);
 
-	for (int i = 0; i < length(conf->exclude_exception); i++) {
-		set_add(src_paths, at(char *, conf->exclude_exception, i));
-		set_add(include_paths, at(char *, conf->exclude_exception, i));
-	}
-
-	/*
-	yyjson_val *inc_arr = yyjson_obj_get(root, "include_paths");
-	if (yyjson_is_arr(inc_arr)) {
-		yyjson_arr_iter iter;
-		success = yyjson_arr_iter_init(inc_arr, &iter);
-		if (!success) {
-			fprintf(stderr, "Not an iterator: include_paths\n");
-			success = 0;
-			vector_free(include_paths);
-			goto CLEANUP;
-		}
-		yyjson_val *val;
-		while ((val = yyjson_arr_iter_next(&iter))) {
-			append(char *, include_paths,
-				   string(string_concat_cstr(str_arena, 3, string(cwd), "/",
-											 (char *)yyjson_get_str(val))));
+	if (conf->exclude_exception) {
+		for (int i = 0; i < length(conf->exclude_exception); i++) {
+			set_add(src_paths, at(char *, conf->exclude_exception, i));
+			set_add(include_paths, at(char *, conf->exclude_exception, i));
 		}
 	}
-	*/
-
-	/*
-	yyjson_val *deps = yyjson_obj_get(root, "dependencies");
-	if (yyjson_is_obj(deps)) {
-		yyjson_obj_iter iter;
-		success = yyjson_obj_iter_init(deps, &iter);
-		if (!success) {
-			fprintf(stderr, "Non an iterator: deps\n");
-			success = 0;
-			vector_free(include_paths);
-			goto CLEANUP;
-		}
-		yyjson_val *key, *dep_obj;
-		while ((key = yyjson_obj_iter_next(&iter))) {
-			dep_obj = yyjson_obj_iter_get_val(key);
-			const char *dep_name = yyjson_get_str(key);
-
-			yyjson_val *dep_inc = yyjson_obj_get(dep_obj, "include_paths");
-			if (yyjson_is_arr(dep_inc)) {
-				yyjson_arr_iter inc_iter;
-				success = yyjson_arr_iter_init(dep_inc, &inc_iter);
-				if (!success) {
-					fprintf(stderr, "Non an iterator: deps_include_paths\n");
-					success = 0;
-					vector_free(include_paths);
-					goto CLEANUP;
-				}
-				yyjson_val *inc_val;
-				while ((inc_val = yyjson_arr_iter_next(&inc_iter))) {
-					String *path = string_concat_cstr(
-						str_arena, 5, string(cwd), "/deps/", (char *)dep_name,
-						"/", (char *)yyjson_get_str(inc_val));
-					append(char *, include_paths, string(path));
-				}
-			}
-		}
-	}
-	*/
-
 	Vector *source_files = vector_init(char *);
 	get_src_vec(conf, src_paths, source_files, cwd);
 
@@ -615,11 +635,6 @@ int generate_compile_commands(Config *conf) {
 	if (!success) {
 		fprintf(stderr, "Failed to write %s: %s\n", output_file, write_err.msg);
 	}
-	/* else {
-		printf("Generated %s with %d source files\n", output_file,
-			   length(source_files));
-	}*/
-
 	vector_free(&include_paths);
 	vector_free(&src_paths);
 	vector_free(&source_files);
@@ -628,11 +643,6 @@ int generate_compile_commands(Config *conf) {
 	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:
-	// vector_free(&exclude_paths);
-	// vector_free(&exclude_exception_paths);
-	// yyjson_doc_free(doc);
-	// arena_free(&str_arena);
-
 	return success ? 0 : -1;
 }
 
@@ -645,94 +655,104 @@ bool is_mybuild_config_present(char *filename) {
 	return false;
 }
 
-String *get_flags(Arena *str_arena, yyjson_val *root, String *type) {
-	Arena *local_arena = arena_init(1024);
-	String *flag_list = string_from(local_arena, "");
+// String *get_flags(Arena *str_arena, yyjson_val *root, String *type) {
+// 	Arena *local_arena = arena_init(1024);
+// 	String *flag_list = string_from(local_arena, "");
 
-	yyjson_val *flag_arr;
+// 	yyjson_val *flag_arr;
 
-	if (STR_CMP(string(type), "build") == 0) {
-		flag_arr = yyjson_obj_get(root, "flags");
-	} else if (STR_CMP(string(type), "lib") == 0) {
-		flag_arr = yyjson_obj_get(root, "lib_links");
-	}
+// 	if (STR_CMP(string(type), "build") == 0) {
+// 		flag_arr = yyjson_obj_get(root, "flags");
+// 	} else if (STR_CMP(string(type), "lib") == 0) {
+// 		flag_arr = yyjson_obj_get(root, "lib_links");
+// 	}
 
-	size_t idx = 0, max = 0;
-	yyjson_val *val;
+// 	size_t idx = 0, max = 0;
+// 	yyjson_val *val;
 
-	yyjson_arr_foreach(flag_arr, idx, max, val) {
-		if (string_len(flag_list) == 0) {
-			flag_list = string_from(local_arena, (char *)yyjson_get_str(val));
-		} else {
-			flag_list = string_concat_cstr(local_arena, 3, string(flag_list),
-										   "\n", (char *)yyjson_get_str(val));
-		}
-	}
+// 	yyjson_arr_foreach(flag_arr, idx, max, val) {
+// 		if (string_len(flag_list) == 0) {
+// 			flag_list = string_from(local_arena, (char *)yyjson_get_str(val));
+// 		} else {
+// 			flag_list = string_concat_cstr(local_arena, 3, string(flag_list),
+// 										   "\n", (char *)yyjson_get_str(val));
+// 		}
+// 	}
 
-	String *export_list = string_from(str_arena, string(flag_list));
-	arena_free(&local_arena);
-	return export_list;
-}
+// 	String *export_list = string_from(str_arena, string(flag_list));
+// 	arena_free(&local_arena);
+// 	return export_list;
+// }
 
-void _add_local(int lib_count, char **lib_link, char *element) {
+void _add_local(Config *conf, int lib_count, char **lib_link, char *element) {
 
-	Arena *arena = arena_init(1024);
+	// Arena *arena = arena_init(1024);
 
-	char *input_file = "composition.json";
+	// char *input_file = "composition.json";
 
 	char *prefix = "-";
+	Vector *element_arr = conf->flags;
 	if (STR_CMP(element, "lib_links") == 0) {
 		prefix = "-l";
+		element_arr = conf->lib_links;
 	}
 
-	yyjson_read_err err;
-	yyjson_doc *doc = yyjson_read_file(input_file, 0, NULL, &err);
+	// yyjson_read_err err;
+	// yyjson_doc *doc = yyjson_read_file(input_file, 0, NULL, &err);
 
-	if (!doc) {
-		fprintf(stderr, "Failed to read %s: %s\n", input_file, err.msg);
-		return;
-	}
-	yyjson_mut_doc *mut_doc = yyjson_doc_mut_copy(doc, NULL);
+	// if (!doc) {
+	// 	fprintf(stderr, "Failed to read %s: %s\n", input_file, err.msg);
+	// 	return;
+	// }
+	// yyjson_mut_doc *mut_doc = yyjson_doc_mut_copy(doc, NULL);
 
-	yyjson_doc_free(doc);
+	// yyjson_doc_free(doc);
 
-	yyjson_mut_val *root = yyjson_mut_doc_get_root(mut_doc);
-	yyjson_mut_val *local_elem = yyjson_mut_obj_get(root, element);
+	// yyjson_mut_val *root = yyjson_mut_doc_get_root(mut_doc);
+	// yyjson_mut_val *local_elem = yyjson_mut_obj_get(root, element);
 
-	Vector *temp_vec = vector_init(char *);
+	// Vector *temp_vec = vector_init(char *);
 
-	int idx = 0, max = 0;
-	yyjson_mut_val *val_mut;
-	yyjson_mut_arr_foreach(local_elem, idx, max, val_mut) {
-		set_add(temp_vec, (char *)yyjson_mut_get_str(val_mut));
-	}
+	// int idx = 0, max = 0;
+	// yyjson_mut_val *val_mut;
+	// yyjson_mut_arr_foreach(local_elem, idx, max, val_mut) {
+	// 	set_add(temp_vec, (char *)yyjson_mut_get_str(val_mut));
+	// }
 
 	for (int i = 0; i < lib_count; i++) {
 		char *current_lib = lib_link[i];
-		set_add(temp_vec,
-				string(string_concat_cstr(arena, 2, prefix, current_lib)));
+		set_add_str(element_arr,
+					string_concat_cstr(conf->arena, 2, prefix, current_lib));
 	}
 
-	yyjson_mut_arr_clear(local_elem);
-	for (int i = 0; i < length(temp_vec); i++) {
-		yyjson_mut_arr_add_str(mut_doc, local_elem, at(char *, temp_vec, i));
-	}
+	// yyjson_mut_arr_clear(local_elem);
+	// for (int i = 0; i < length(temp_vec); i++) {
+	// 	yyjson_mut_arr_add_str(mut_doc, local_elem, at(char *, temp_vec, i));
+	// }
 
-	yyjson_write_err werr;
-	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	if (!yyjson_mut_write_file("./composition.json", mut_doc, flg, NULL,
-							   &werr)) {
-		fprintf(stderr, "Write error: %s\n", werr.msg);
-	}
+	// yyjson_write_err werr;
+	// yyjson_write_flag flg = YYJSON_WRITE_PRETTY |
+	// YYJSON_WRITE_ESCAPE_UNICODE; if
+	// (!yyjson_mut_write_file("./composition.json", mut_doc, flg, NULL,
+	// &werr)) { 	fprintf(stderr, "Write error: %s\n", werr.msg);
+	// }
 
-	vector_free(&temp_vec);
-	yyjson_mut_doc_free(mut_doc);
-	arena_free(&arena);
+	// vector_free(&temp_vec);
+	// yyjson_mut_doc_free(mut_doc);
+	// arena_free(&arena);
 }
 
 void add_local_lib(int lib_count, char **lib_link) {
-	_add_local(lib_count, lib_link, "lib_links");
+	Config *conf = config_init();
+	read_flint_composition("composition.json", conf);
+	_add_local(conf, lib_count, lib_link, "lib_links");
+	write_flint_composition("composition.json", conf);
+	config_free(conf);
 }
 void add_flag(int lib_count, char **lib_link) {
-	_add_local(lib_count, lib_link, "flags");
+	Config *conf = config_init();
+	read_flint_composition("composition.json", conf);
+	_add_local(conf, lib_count, lib_link, "flags");
+	write_flint_composition("composition.json", conf);
+	config_free(conf);
 }
