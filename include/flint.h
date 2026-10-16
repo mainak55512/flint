@@ -194,8 +194,8 @@
 // void clear_cache();
 
 // void fetch_library(Config *current_config, char *libURL, char *hash, Cmap
-// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena, Vector
-// *v, String *sep);
+// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena,
+// Vector *v, String *sep);
 
 #ifndef FLINT_H
 #define FLINT_H
@@ -209,8 +209,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <strings.h>
+// #include <string.h>
+// #include <strings.h>
 #include <yyjson.h>
 
 #ifdef _WIN32
