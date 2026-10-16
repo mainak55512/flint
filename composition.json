@@ -2,7 +2,7 @@
     "project_name": "flint",
     "project_language": "c",
     "version": "v0.5.17",
-    "compiler_path": "x86_64-w64-mingw32-gcc",
+    "compiler_path": "gcc",
     "executable": true,
 
     "flags": [
