@@ -194,8 +194,8 @@
 // void clear_cache();
 
 // void fetch_library(Config *current_config, char *libURL, char *hash, Cmap
-// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena, Vector *v, String
-// *sep);
+// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena, Vector
+// *v, String *sep);
 
 #ifndef FLINT_H
 #define FLINT_H
@@ -215,7 +215,9 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <dirent.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <windows.h>
 #define MAKE_DIR(dir) _mkdir(dir)
 #define STAT _stat

@@ -253,17 +253,17 @@ void get_shared_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
 // }
 
 long long get_file_modified_time(const char *path) {
-#if defined(_WIN32)
-	struct _stat64 attr;
-	if (_stat64(path, &attr) == 0) {
+	// #if defined(_WIN32)
+	struct STAT attr;
+	if (STAT(path, &attr) == 0) {
 		return (long long)attr.st_mtime;
 	}
-#else
-	struct stat attr;
-	if (stat(path, &attr) == 0) {
-		return (long long)attr.st_mtime;
-	}
-#endif
+	// #else
+	// 	struct stat attr;
+	// 	if (stat(path, &attr) == 0) {
+	// 		return (long long)attr.st_mtime;
+	// 	}
+	// #endif
 	return 0;
 }
 

@@ -1,5 +1,3 @@
-#include "container.h"
-#include "yyjson.h"
 #include <flint.h>
 
 String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
@@ -297,7 +295,7 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		buffer[strcspn(buffer, "\r\n")] = '\0';
 		strncpy(hash, buffer, 40);
-		hash[40] = '\0'; // Ensure null-termination
+		hash[40] = '\0';
 	} else {
 		hash[0] = '\0';
 	}
@@ -309,22 +307,88 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 		return "";
 	}
 
+	// #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+	// 	if (status != 0) {
+	// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
+	// 				status);
+	// 		return "";
+	// 	}
+	// #else
+	// 	if (WEXITSTATUS(status) != 0) {
+	// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
+	// 				WEXITSTATUS(status));
+	// 		return "";
+	// 	}
+	// #endif
+
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-	if (status != 0) {
-		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-				status);
-		return "";
-	}
+	int exit_code = status;
+#elif defined(_WIN32)
+	int exit_code = status;
 #else
-	if (WEXITSTATUS(status) != 0) {
+	int exit_code = WEXITSTATUS(status);
+#endif
+
+	if (exit_code != 0) {
 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-				WEXITSTATUS(status));
+				exit_code);
 		return "";
 	}
-#endif
 
 	return hash;
 }
+
+// char *get_lib_hash(Arena *arena, char *target_dir) {
+// 	char *hash = (char *)arena_alloc(arena, 41 * sizeof(char));
+// 	if (!hash)
+// 		return "";
+
+// 	char buffer[128];
+
+// 	String *cmd =
+// 		string_concat_cstr(arena, 3, "git -C ", target_dir, " rev-parse HEAD");
+// 	FILE *fp = popen(string(cmd), "r");
+// 	if (fp == NULL) {
+// 		perror("Failed to run git command");
+// 		return "";
+// 	}
+
+// 	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+// 		buffer[strcspn(buffer, "\r\n")] = '\0';
+
+// 		int i = 0;
+// 		while (buffer[i] != '\0' && i < 40) {
+// 			hash[i] = buffer[i];
+// 			i++;
+// 		}
+// 		hash[i] = '\0';
+// 	} else {
+// 		hash[0] = '\0';
+// 	}
+
+// 	int status = pclose(fp);
+
+// 	if (status == -1) {
+// 		perror("pclose failed");
+// 		return "";
+// 	}
+
+// #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+// 	int exit_code = status;
+// #elif defined(_WIN32)
+// 	int exit_code = status;
+// #else
+// 	int exit_code = WEXITSTATUS(status);
+// #endif
+
+// 	if (exit_code != 0) {
+// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
+// 				exit_code);
+// 		return "";
+// 	}
+
+// 	return hash;
+// }
 
 char *arena_strdup(Arena *arena, const char *str) {
 	if (!str)

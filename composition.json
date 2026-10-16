@@ -2,15 +2,14 @@
     "project_name": "flint",
     "project_language": "c",
     "version": "v0.5.17",
-    "compiler_path": "clang",
+    "compiler_path": "x86_64-w64-mingw32-gcc",
     "executable": true,
 
     "flags": [
         "-O3",
-        "-fstack-protector-strong",
-        "-D_FORTIFY_SOURCE=2",
         "-Wno-unused-command-line-argument",
-        "-s"
+        "-s",
+        "-fno-stack-protector"
     ],
 
     "excludes": ["src/config_refactor.c"],
