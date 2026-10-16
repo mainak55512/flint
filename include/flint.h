@@ -363,8 +363,8 @@
 // void clear_cache();
 
 // void fetch_library(Config *current_config, char *libURL, char *hash, Cmap
-// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena, Vector *v, String
-// *sep);
+// *lock, 				   bool sync); String *join_vec_to_str(Arena *arena, Vector
+// *v, String *sep);
 
 // #endif // FLINT_H
 
@@ -384,7 +384,9 @@
 #include <yyjson.h>
 
 #ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
 #include <direct.h>
+#include <io.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <windows.h>

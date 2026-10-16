@@ -121,7 +121,8 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 	WIN32_FIND_DATAA find_data;
-	String *search_pattern = string_concat_cstr(arena, 2, string(path), "/*");
+	String *search_pattern =
+		string_concat_cstr(str_arena, 2, string(path), "/*");
 	HANDLE hFind = FindFirstFileA(string(search_pattern), &find_data);
 
 	if (hFind != INVALID_HANDLE_VALUE) {
