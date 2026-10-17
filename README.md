@@ -58,7 +58,8 @@ flint run
 From v0.5.20, pre-built binaries for Linux, macOS and windows are available in the [releases](https://github.com/mainak55512/flint/releases) section.
 
 
-If you want to build flint from source
+If you want to build flint from source follow the below steps:
+
 
 **Linux & macOS:**
 
