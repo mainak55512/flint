@@ -56,7 +56,7 @@ flint run
 **Linux & macOS:**
 
 ```bash
-git clone [https://github.com/mainak55512/flint.git](https://github.com/mainak55512/flint.git)
+git clone https://github.com/mainak55512/flint.git
 cd flint && ./build.sh
 
 ```
@@ -70,14 +70,6 @@ cd flint;
 
 ```
 
-If you prefer the one-line installer on Linux/macOS, read the script first:
-
-```bash
-curl -fsSL -H "Accept: application/vnd.github.v3.raw" \
-  [https://api.github.com/repos/mainak55512/flint/contents/install.sh](https://api.github.com/repos/mainak55512/flint/contents/install.sh) -o install.sh
-less install.sh && bash install.sh
-
-```
 
 ## Project layout
 
