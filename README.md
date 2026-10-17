@@ -244,4 +244,4 @@ Feedback on which of these matters most is the most useful contribution right no
 
 ## License
 
-MIT. See [LICENSE](https://www.google.com/search?q=LICENSE).
+MIT. See [LICENSE](LICENSE).
