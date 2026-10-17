@@ -65,7 +65,8 @@ If you want to build flint from source follow the below steps:
 
 ```bash
 git clone https://github.com/mainak55512/flint.git
-cd flint && ./build.sh
+cd flint
+./build.sh
 
 ```
 
@@ -73,7 +74,7 @@ cd flint && ./build.sh
 
 ```powershell
 git clone https://github.com/mainak55512/flint.git
-cd flint; 
+cd flint 
 .\build.ps1
 
 ```
