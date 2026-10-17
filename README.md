@@ -53,6 +53,10 @@ flint run
 * **Linux / macOS:** `gcc` or `clang`
 * **Windows:** `gcc` or `clang` targeting the **MinGW** backend (e.g., `x86_64-w64-mingw32-gcc`, MSYS2 MinGW, or `clang` with MinGW target)
 
+**Pre-built binaries**
+
+From v0.5.20, pre-built binaries for Linux, macOS and windows are available in the [releases](https://github.com/mainak55512/flint/releases) section.
+
 **Linux & macOS:**
 
 ```bash
