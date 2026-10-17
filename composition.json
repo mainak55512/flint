@@ -1,26 +1,23 @@
 {
-    // Project configuration
     "project_name": "flint",
     "project_language": "c",
-    "version": "v0.5.5",
-    "compiler_path": "/usr/bin/clang-18",
+    "version": "v0.5.20",
+    "compiler_path": "clang",
     "executable": true,
 
-    // Build flags
     "flags": [
         "-O3",
-        "-fstack-protector-strong",
-        "-D_FORTIFY_SOURCE=2",
         "-Wno-unused-command-line-argument",
-        "-s"
+        "-s",
+        "-fno-stack-protector"
     ],
 
-    // Excluded directories
+    "excludes": ["src/config_refactor.c"],
+
     "exclude_dirs": [
         "build"
     ],
 
-    // Dependencies
     "dependencies": {
         "arena": {
             "version": "v0.1.1",

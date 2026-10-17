@@ -30,4 +30,5 @@ void map_add(Cmap *cmap, const char *key, void *val);
 void *map_get(Cmap *cmap, const char *key);
 void map_reset(Cmap *cmap);
 Vector *map_keys(Cmap *cmap);
+size_t map_len(Cmap *map);
 #endif

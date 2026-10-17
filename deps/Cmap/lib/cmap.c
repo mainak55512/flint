@@ -22,7 +22,7 @@ Cmap *map_init() {
 
 void map_free(Cmap *cmap) {
 	if (cmap->buckets != NULL) {
-		vector_free(cmap->buckets);
+		vector_free(&cmap->buckets);
 	}
 	Arena *arena_to_free = cmap->arena;
 	arena_free(&arena_to_free);
@@ -104,7 +104,7 @@ void map_reset(Cmap *cmap) {
 		}
 	}
 
-	vector_free(cmap->buckets);
+	vector_free(&cmap->buckets);
 	cmap->buckets = new_buckets;
 	cmap->capacity = new_capacity;
 }
@@ -119,4 +119,11 @@ Vector *map_keys(Cmap *cmap) {
 		}
 	}
 	return keys;
+}
+
+size_t map_len(Cmap *map) {
+	Vector *elems = map_keys(map);
+	size_t len = length(elems) ? length(elems) : 0;
+	vector_free(&elems);
+	return len;
 }
