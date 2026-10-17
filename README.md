@@ -26,7 +26,7 @@ Flint is written in C and builds itself with Flint (see its own [`composition.js
 ```bash
 mkdir hello && cd hello
 flint init
-flint add [https://github.com/mainak55512/Cmap@v0.1.1](https://github.com/mainak55512/Cmap@v0.1.1)
+flint add https://github.com/mainak55512/Cmap@v0.1.1
 flint run
 
 ```
