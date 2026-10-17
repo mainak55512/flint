@@ -9,7 +9,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSNativeCommandUseErrorActionPreference =$false
 }
 
-$VERSION = "v0.5.5"
+$VERSION = "v0.5.20"
 
 # 1. Compiler Detection
 $compiler =$null

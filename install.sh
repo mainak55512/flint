@@ -6,7 +6,7 @@ REPO_URL="https://github.com/mainak55512/flint.git"
 
 ORIGINAL_DIR="$(pwd)"
 
-VERSION="v0.5.5"
+VERSION="v0.5.20"
 
 echo "* Checking dependencies..."
 
@@ -54,8 +54,7 @@ echo "* Compiling Flint (Release) using $COMPILER..."
 $COMPILER \
   -O3 \
   -DNDEBUG \
-  -fstack-protector-strong \
-  -D_FORTIFY_SOURCE=2 \
+  -fno-stack-protector\
   -Wno-unused-result \
   -DPROJECT_VERSION="$VERSION"\
   -I./include \

@@ -1,0 +1,150 @@
+name: Build and Release Flint
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            compiler: gcc
+            bin_name: flint
+            archive_name: flint-linux-x86_64.tar.gz
+
+          - os: macos-latest
+            target: macos-arm64
+            compiler: clang
+            bin_name: flint
+            archive_name: flint-macos-arm64.tar.gz
+
+          - os: windows-latest
+            target: windows-x86_64
+            compiler: x86_64-w64-mingw32-gcc
+            bin_name: flint.exe
+            archive_name: flint-windows-x86_64.zip
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Determine Version
+        id: vars
+        shell: bash
+        run: |
+          VERSION=$(jq -r '.version' composition.json)
+          echo "Detected version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build on Linux & macOS
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} \
+            -O3 \
+            -DNDEBUG \
+            -fno-stack-protector \
+            -Wno-unused-result \
+            -DPROJECT_VERSION=\"${{ steps.vars.outputs.version }}\" \
+            -I./include \
+            -I./deps/arena/include \
+            -I./deps/CString/include \
+            -I./deps/container/include \
+            -I./deps/Cmap/include \
+            -I./deps/yyjson/src \
+            ./deps/arena/lib/arena.c \
+            ./deps/CString/lib/cstring.c \
+            ./deps/container/lib/cvector.c \
+            ./deps/Cmap/lib/cmap.c \
+            ./deps/yyjson/src/yyjson.c \
+            ./src/main.c \
+            ./src/cli.c \
+            ./src/config_handler.c \
+            ./src/file_handler.c \
+            ./src/package_manager.c \
+            ./src/utils.c \
+            ./src/project_handler.c \
+            -o ${{ matrix.bin_name }}
+
+          chmod +x ${{ matrix.bin_name }}
+          tar -czvf ${{ matrix.archive_name }}${{ matrix.bin_name }}
+
+      - name: Build on Windows (MinGW)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $argsList = @(
+              "-O3",
+              "-DNDEBUG",
+              "-Wno-unused-result",
+              "-fno-stack-protector",
+              "-D_CRT_SECURE_NO_WARNINGS",
+              "-DPROJECT_VERSION=`"${{ steps.vars.outputs.version }}`"",
+              "-I./include",
+              "-I./deps/arena/include",
+              "-I./deps/CString/include",
+              "-I./deps/container/include",
+              "-I./deps/Cmap/include",
+              "-I./deps/yyjson/src",
+              "./deps/arena/lib/arena.c",
+              "./deps/CString/lib/cstring.c",
+              "./deps/container/lib/cvector.c",
+              "./deps/Cmap/lib/cmap.c",
+              "./deps/yyjson/src/yyjson.c",
+              "./src/main.c",
+              "./src/cli.c",
+              "./src/config_handler.c",
+              "./src/file_handler.c",
+              "./src/package_manager.c",
+              "./src/utils.c",
+              "./src/project_handler.c",
+              "-static",
+              "-o",
+              "${{ matrix.bin_name }}"
+          )
+          & ${{ matrix.compiler }}$argsList
+          if ($LASTEXITCODE -ne 0) { exit$LASTEXITCODE }
+
+          Compress-Archive -Path "${{ matrix.bin_name }}" -DestinationPath "${{ matrix.archive_name }}"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            ${{ matrix.bin_name }}${{ matrix.archive_name }}
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release and Upload Binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*/*.tar.gz
+            artifacts/*/*.zip
+            artifacts/*/*flint*
