@@ -53,11 +53,20 @@ flint run
 * **Linux / macOS:** `gcc` or `clang`
 * **Windows:** `gcc` or `clang` targeting the **MinGW** backend (e.g., `x86_64-w64-mingw32-gcc`, MSYS2 MinGW, or `clang` with MinGW target)
 
+**Pre-built binaries**
+
+From v0.5.20, pre-built binaries for Linux, macOS and windows are available in the [releases](https://github.com/mainak55512/flint/releases) section.
+
+
+If you want to build flint from source follow the below steps:
+
+
 **Linux & macOS:**
 
 ```bash
-git clone [https://github.com/mainak55512/flint.git](https://github.com/mainak55512/flint.git)
-cd flint && ./build.sh
+git clone https://github.com/mainak55512/flint.git
+cd flint
+./build.sh
 
 ```
 
@@ -65,19 +74,11 @@ cd flint && ./build.sh
 
 ```powershell
 git clone https://github.com/mainak55512/flint.git
-cd flint; 
+cd flint 
 .\build.ps1
 
 ```
 
-If you prefer the one-line installer on Linux/macOS, read the script first:
-
-```bash
-curl -fsSL -H "Accept: application/vnd.github.v3.raw" \
-  [https://api.github.com/repos/mainak55512/flint/contents/install.sh](https://api.github.com/repos/mainak55512/flint/contents/install.sh) -o install.sh
-less install.sh && bash install.sh
-
-```
 
 ## Project layout
 
@@ -252,4 +253,4 @@ Feedback on which of these matters most is the most useful contribution right no
 
 ## License
 
-MIT. See [LICENSE](https://www.google.com/search?q=LICENSE).
+MIT. See [LICENSE](LICENSE).
