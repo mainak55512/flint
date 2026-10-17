@@ -79,10 +79,10 @@ jobs:
             ./src/package_manager.c \
             ./src/utils.c \
             ./src/project_handler.c \
-            -o ${{ matrix.bin_name }}
+            -o "${{ matrix.bin_name }}"
 
-          chmod +x ${{ matrix.bin_name }}
-          tar -czvf ${{ matrix.archive_name }}${{ matrix.bin_name }}
+          chmod +x "${{ matrix.bin_name }}"
+          tar -czvf "${{ matrix.archive_name }}" "${{ matrix.bin_name }}"
 
       - name: Build on Windows (MinGW)
         if: runner.os == 'Windows'
@@ -147,4 +147,3 @@ jobs:
           files: |
             artifacts/*/*.tar.gz
             artifacts/*/*.zip
-            artifacts/*/*flint*
