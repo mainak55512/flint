@@ -127,7 +127,8 @@ jobs:
         with:
           name: ${{ matrix.target }}
           path: |
-            ${{ matrix.bin_name }}${{ matrix.archive_name }}
+            ${{ matrix.bin_name }}
+            ${{ matrix.archive_name }}
 
   release:
     name: Publish GitHub Release
