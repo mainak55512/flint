@@ -318,14 +318,14 @@ String *get_archiever(Arena *arena) {
 
 int init_project() {
 	int ret = 0, dir_create_status = 0, file_create_status = 0;
-	bool isExec;
+	// bool isExec;
 	if (file_exists("./composition.json")) {
 		printf("[!] Flint Chert already initiated!\n");
 		return ret;
 	}
 	Config *conf = config_init();
 
-	isExec = true;
+	conf->executable = true;
 
 	printf("[+] Bootstrapping New Project...\n");
 	printf("[?] Project Name: ");
@@ -386,8 +386,8 @@ int init_project() {
 		}
 	}
 
-	isExec = STR_CMP(string(project_type), "lib") == 0 ? false : true;
-	if (isExec) {
+	conf->executable = STR_CMP(string(project_type), "lib") == 0 ? false : true;
+	if (conf->executable) {
 		String *src_dir =
 			string_concat_cstr(conf->arena, 2, string(project_dir), "/src");
 		if (!directory_exists(string(src_dir))) {
@@ -438,7 +438,7 @@ int init_project() {
 	switch (check_project_lang(string(conf->project_language))) {
 	case 0: {
 		char *file_name;
-		file_name = isExec
+		file_name = conf->executable
 						? "./src/main.cpp"
 						: string(string_concat_cstr(conf->arena, 3, "./lib/",
 													string(conf->project_name),
@@ -469,7 +469,7 @@ int init_project() {
 	}
 	default: {
 		char *file_name =
-			isExec
+			conf->executable
 				? "./src/main.c"
 				: string(string_concat_cstr(conf->arena, 3, "./lib/",
 											string(conf->project_name), ".c"));
