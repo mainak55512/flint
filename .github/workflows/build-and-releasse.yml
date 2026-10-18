@@ -118,7 +118,7 @@ jobs:
               "${{ matrix.bin_name }}"
           )
           & ${{ matrix.compiler }} $argsList
-          if ($LASTEXITCODE -ne 0) { exit$LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           Compress-Archive -Path "${{ matrix.bin_name }}" -DestinationPath "${{ matrix.archive_name }}"
 
