@@ -56,6 +56,7 @@ jobs:
         shell: bash
         run: |
           ${{ matrix.compiler }} \
+            "-std=c11" \
             -O3 \
             -DNDEBUG \
             -fno-stack-protector \
@@ -89,6 +90,7 @@ jobs:
         shell: pwsh
         run: |
           $argsList = @(
+              "-std=c11",
               "-O3",
               "-DNDEBUG",
               "-Wno-unused-result",
