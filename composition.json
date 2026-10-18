@@ -12,16 +12,12 @@
         "-Wall"
     ],
     "lib_links": [],
-    "excludes": [
-        "src/config_refactor.c"
-    ],
+    "excludes": [],
     "exclude_dirs": [
         "build",
-        "deps_bak",
         "deps/yyjson/fuzz",
         "deps/yyjson/misc",
         "deps/yyjson/test",
-        "deps/Cmap/deps/container/build",
         "deps/container/build"
     ],
     "exclude_exception": [],
