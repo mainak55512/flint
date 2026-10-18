@@ -6,6 +6,7 @@
     "executable": true,
     "flags": [
         "-O3",
+        "-std=c11",
         "-Wno-unused-command-line-argument",
         "-s",
         "-fno-stack-protector",
