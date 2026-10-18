@@ -19,19 +19,23 @@ Vector *remove_arr_entry(Arena *arena, Vector *arr, char *search_str) {
 }
 
 // Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char
-// *ref_hash) { 	Dependency *lib_details = 		(Dependency *)arena_alloc(arena,
-// sizeof(Dependency)); 	char *repo_name = get_repo_name(arena, libURL); 	char
-// *target_dir = 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
-// 	char *sink_path = ">/dev/null 2>&1";
-// 	char *command = string(string_concat_cstr(
-// 		arena, 24, "mkdir -p ", target_dir, " ", sink_path, " && git -C ",
-// 		target_dir, " init ", sink_path, " && git -C ", target_dir,
-// 		" remote add origin ", libURL, " ", sink_path, " && git -C ",
-// 		target_dir, " fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
-// 		" && git -C ", target_dir, " checkout FETCH_HEAD ", sink_path));
-// 	if (system(command) >> 8 == 128) {
-// 		if (directory_exists(target_dir)) {
-// 			remove_directory(arena, target_dir);
+// *ref_hash) { 	Dependency *lib_details = 		(Dependency
+// *)arena_alloc(arena, sizeof(Dependency)); 	char *repo_name =
+// get_repo_name(arena, libURL); 	char *target_dir =
+// string(string_concat_cstr(arena, 2, "./deps/", repo_name)); 	char *sink_path
+// =
+// ">/dev/null 2>&1"; 	char *command = string(string_concat_cstr( 		arena,
+// 24,
+// "mkdir -p ", target_dir, " ", sink_path, " && git -C ", 		target_dir, "
+// init
+// ",
+// sink_path, " && git -C ", target_dir, 		" remote add origin ", libURL, "
+// ",
+// sink_path, " && git -C ", 		target_dir, " fetch --depth 1 --tags origin
+// ", ref_hash, " ", sink_path, 		" && git -C ", target_dir, " checkout
+// FETCH_HEAD ", sink_path)); 	if (system(command) >> 8 == 128) { 		if
+// (directory_exists(target_dir)) { 			remove_directory(arena,
+// target_dir);
 // 		}
 // 		return NULL;
 // 	}
@@ -76,7 +80,7 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 #endif
 
 	char *command = string(string_concat_cstr(
-		arena, 23, "git -C \"", target_dir, "\" init ", sink_path,
+		arena, 20, "git -C \"", target_dir, "\" init ", sink_path,
 		" && git -C \"", target_dir, "\" remote add origin \"", libURL, "\" ",
 		sink_path, " && git -C \"", target_dir,
 		"\" fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,

@@ -1,23 +1,26 @@
 {
     "project_name": "CString",
     "project_language": "c",
-    "version": "0.1.0",
+    "version": "v0.1.1",
     "compiler_path": "/usr/bin/clang-18",
+    "flags": ["-O3", "-Wall"],
     "include_paths": [
-        "include"
+        "include",
+        "deps/arena/include"
     ],
     "src": [
-        "lib"
+        "lib",
+        "deps/arena/lib"
+    ],
+    "static_lib": [
+        "static"
+    ],
+    "shared_lib": [
+        "shared"
     ],
     "dependencies": {
         "arena": {
-            "version": "0.1.1",
-            "include_paths": [
-                "include"
-            ],
-            "src": [
-                "lib"
-            ],
+            "version": "v0.1.1",
             "remote": "https://github.com/mainak55512/arena"
         }
     }

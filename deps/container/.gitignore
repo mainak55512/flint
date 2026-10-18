@@ -1,0 +1,9 @@
+build/
+
+deps/
+
+.qwe/
+
+.cache/
+
+.clang-format

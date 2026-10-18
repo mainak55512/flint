@@ -21,9 +21,21 @@ String *string_from(Arena *arena, char *str) {
 	}
 	new_str = (char *)arena_alloc(arena, strlen + 1); // +1 for null terminator
 	memcpy(new_str, str, strlen);
+	st->str = new_str;
+	st->length = strlen;
 
-	new_str[strlen] = '\0';
+	return st;
+}
 
+String *string_from_len(Arena *arena, size_t len, char *str) {
+	int strlen;
+	String *st;
+	char *new_str;
+
+	strlen = len;
+	st = (String *)arena_alloc(arena, sizeof(String));
+	new_str = (char *)arena_alloc(arena, strlen + 1); // +1 for null terminator
+	memcpy(new_str, str, strlen);
 	st->str = new_str;
 	st->length = strlen;
 
@@ -268,4 +280,42 @@ char *string_lower(Arena *arena, String *str) {
 	}
 	out[str->length] = '\0';
 	return out;
+}
+
+bool string_comp(String *s1, String *s2) {
+	if (s1 == NULL || s2 == NULL)
+		return false;
+	if (s1->str == NULL || s2->str == NULL)
+		return false;
+	if (s1->length != s2->length)
+		return false;
+	size_t i;
+	for (i = 0; i < s1->length - 1; i++) {
+		if (s1->str[i] == s2->str[i])
+			continue;
+		else if (s1->str[i] >= 'A' && s1->str[i] <= 'Z' &&
+				 s2->str[i] == s1->str[i] + ('a' - 'A'))
+			continue;
+		else if (s1->str[i] >= 'a' && s1->str[i] <= 'z' &&
+				 s2->str[i] == s1->str[i] - ('a' - 'A'))
+			continue;
+		else
+			break;
+	}
+	return (i == (s1->length - 1));
+}
+
+bool string_comp_case(String *s1, String *s2) {
+	if (s1 == NULL || s2 == NULL)
+		return false;
+	if (s1->str == NULL || s2->str == NULL)
+		return false;
+	if (s1->length != s2->length)
+		return false;
+
+	size_t i = 0;
+	while (i < s1->length - 1 && s1->str[i] == s2->str[i]) {
+		i++;
+	}
+	return (i == (s1->length - 1));
 }

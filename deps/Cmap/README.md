@@ -37,7 +37,7 @@ This project is configured to be built as a static library. Note that the `CMake
 You can add the library in your **[flint](https://github.com/mainak55512/flint)** project directly:
 
 ```bash
-flint add https://github.com/mainak55512/Cmap
+flint add https://github.com/mainak55512/Cmap@v0.1.1
 
 ```
 

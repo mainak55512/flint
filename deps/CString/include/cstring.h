@@ -29,10 +29,17 @@ void arena_free(Arena **arena);
 
 #endif // ARENA_H
 
+#define true 1
+#define false 0
+
+typedef int bool;
 typedef struct String String;
 
 /* Creates a String object from c-string (char *) */
 String *string_from(Arena *arena, char *str);
+
+/* Creates a String object from c-string (char *) with specified length*/
+String *string_from_len(Arena *arena, size_t len, char *str);
 
 /* Creates a deep copy of an existing String object */
 String *string_clone(Arena *arena, String *str);
@@ -65,4 +72,11 @@ char *string_upper(Arena *arena, String *str);
 /* Converts all upper-case characters in a string to lower-case*/
 char *string_lower(Arena *arena, String *str);
 
+/* Compares each corresponding character of two null-terminated strings without
+ * case sensitivity*/
+bool string_comp(struct String *s1, struct String *s2);
+
+/* Compares each corresponding character of two null-terminated strings with
+case sensitivity*/
+bool string_comp_case(struct String *s1, struct String *s2);
 #endif // CSTRING_H

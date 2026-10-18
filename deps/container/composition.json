@@ -1,13 +1,19 @@
 {
     "project_name": "container",
     "project_language": "c",
-    "version": "0.1.1",
-    "compiler_path": "/usr/bin/clang-18",
-    "include_paths": [
-        "include"
+    "compiler_path": "gcc",
+    "version": "v0.1.2",
+    "executable": false,
+    "flags": [
+        "-O3"
     ],
-    "src": [
-        "lib"
+    "lib_links": [],
+    "excludes": [],
+    "exclude_dirs": [
+        "build"
     ],
-    "dependencies": {}
+    "exclude_exception": [],
+    "tmpl": {},
+    "dependencies": {},
+    "sync": {}
 }
