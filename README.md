@@ -103,57 +103,58 @@ This is Flint's own manifest:
 
 ```jsonc
 {
-    // Project configuration
     "project_name": "flint",
     "project_language": "c",
-    "version": "v0.5.20",
     "compiler_path": "clang",
+    "version": "v0.5.20",
     "executable": true,
-
-    // Build flags
     "flags": [
+        "-std=gnu11",
         "-O3",
         "-Wno-unused-command-line-argument",
         "-s",
-        "-fno-stack-protector"
+        "-fno-stack-protector",
+        "-Wall"
     ],
-
-    // Skipped during source discovery
-    "excludes": ["src/config_refactor.c"],
-    "exclude_dirs": ["build"],
-
-    // Native Flint dependencies
+    "lib_links": [],
+    "excludes": [],
+    "exclude_dirs": [
+        "build",
+        "deps/yyjson/fuzz",
+        "deps/yyjson/misc",
+        "deps/yyjson/test",
+        "deps/container/build"
+    ],
+    "exclude_exception": [],
+    "tmpl": {},
     "dependencies": {
-        "arena": {
-            "version": "v0.1.1",
-            "remote": "[https://github.com/mainak55512/arena](https://github.com/mainak55512/arena)",
-            "hash": "b1659723d4d45a7eba5a8b12648a22f0212da17e"
+        "container": {
+            "version": "v0.1.2",
+            "remote": "https://github.com/mainak55512/container",
+            "hash": "a2583f9eeeadb6f3cfa2284ea1d31ef82ae62622"
         },
         "CString": {
             "version": "v0.1.1",
-            "remote": "[https://github.com/mainak55512/CString](https://github.com/mainak55512/CString)",
+            "remote": "https://github.com/mainak55512/CString",
             "hash": "a58d598a907596bac876dbbaa7482d0d2a7e91cc"
         },
-        "container": {
-            "version": "v0.1.1",
-            "remote": "[https://github.com/mainak55512/container](https://github.com/mainak55512/container)",
-            "hash": "c2a3a5af3f5ebe3f63cf540073021dde24e56e38"
-        },
-        "Cmap": {
-            "version": "v0.1.1",
-            "remote": "[https://github.com/mainak55512/Cmap](https://github.com/mainak55512/Cmap)",
-            "hash": "5827928228c9d2c44eacbe44b4457b496554be57"
-        }
-    },
-
-    // Synced repositories (e.g., chert compositions for non-Flint libraries)
-    "sync": {
         "yyjson": {
             "version": "0.12.0",
-            "remote": "[https://github.com/ibireme/yyjson](https://github.com/ibireme/yyjson)",
+            "remote": "https://github.com/ibireme/yyjson",
             "hash": "8b4a38dc994a110abaec8a400615567bd996105f"
+        },
+        "Cmap": {
+            "version": "v0.1.2",
+            "remote": "https://github.com/mainak55512/Cmap",
+            "hash": "3267fb66bac3d3b536e7c50637e0ce3985e2b3d9"
+        },
+        "arena": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/arena",
+            "hash": "b1659723d4d45a7eba5a8b12648a22f0212da17e"
         }
-    }
+    },
+    "sync": {}
 }
 
 ```
