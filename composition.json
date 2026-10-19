@@ -2,7 +2,7 @@
     "project_name": "flint",
     "project_language": "c",
     "compiler_path": "clang",
-    "version": "v0.5.20",
+    "version": "v0.5.21",
     "executable": true,
     "flags": [
         "-std=gnu11",
