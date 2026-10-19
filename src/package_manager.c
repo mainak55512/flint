@@ -376,12 +376,18 @@ void add_lib(char *libURL) {
 	config_free(conf);
 }
 
-void sync_lib() {
+void sync_lib(char *elem) {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
-	Cmap *lock = read_lock_file();
 	Vector *sync_keys = map_keys(conf->sync);
 	Vector *dep_keys = map_keys(conf->dependencies);
+
+	if (elem && STR_CMP(elem, "all") == 0) {
+		remove("flint.lock");
+		remove_directory(conf->arena, "deps");
+	}
+
+	Cmap *lock = read_lock_file();
 
 	if (length(sync_keys)) {
 		for (int i = 0; i < length(sync_keys); i++) {

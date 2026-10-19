@@ -1,3 +1,4 @@
+#include "cstring.h"
 #include <flint.h>
 
 Config *config_init() {
@@ -330,9 +331,12 @@ bool lock_contains(Cmap *lock, char *libURL) {
 		char *repo_name = get_repo_name(lock->arena, libURL);
 		Dependency *lock_entry = map_get(lock, repo_name);
 		if (lock_entry) {
-			if (STR_CMP(string(lock_entry->remote), libURL) == 0) {
-				return true;
+			if (!directory_exists(string(
+					string_concat_cstr(lock->arena, 2, "deps/", repo_name))) ||
+				STR_CMP(string(lock_entry->remote), libURL) != 0) {
+				return false;
 			}
+			return true;
 		}
 	}
 	return false;

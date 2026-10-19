@@ -143,7 +143,7 @@ void add_lib(char *libURL);
 void remove_library_partial(char *libURL);
 void remove_library(char *repo_name);
 void run_project(Arena *global_str_arena);
-void sync_lib();
+void sync_lib(char *elem);
 const char *get_filename_without_path(const char *path);
 int cli(int argc, char *argv[], Arena *global_str_arena);
 long long get_file_modified_time(const char *path);

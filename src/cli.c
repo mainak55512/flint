@@ -123,7 +123,7 @@ int cli(int argc, char *argv[], Arena *global_str_arena) {
 		config_free(conf);
 		return 0;
 	} else if (STR_CMP(opt, "sync") == 0) {
-		sync_lib();
+		sync_lib(argv[2]);
 		return 0;
 	} else if (STR_CMP(opt, "deps") == 0) {
 		list_deps();
