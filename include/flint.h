@@ -13,6 +13,20 @@
 #include <string.h>
 #include <yyjson.h>
 
+#if defined(_WIN32)
+#define CURRENT_OS "windows"
+#define IS_UNIX 0
+#elif defined(__APPLE__)
+#define CURRENT_OS "macos"
+#define IS_UNIX 1
+#elif defined(__linux__)
+#define CURRENT_OS "linux"
+#define IS_UNIX 1
+#else
+#define CURRENT_OS "unknown"
+#define IS_UNIX 0
+#endif
+
 #ifdef _WIN32
 // #define _CRT_SECURE_NO_WARNINGS
 #include <direct.h>
@@ -180,5 +194,6 @@ void clear_cache();
 void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync);
 String *join_vec_to_str(Arena *arena, Vector *v, String *sep);
+bool is_platform_element(char *entry, char **out_flag);
 
 #endif // FLINT_H
