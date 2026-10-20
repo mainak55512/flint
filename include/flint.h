@@ -47,12 +47,11 @@
 #define STR_CMP _stricmp
 #define GET_WD _getcwd
 
+#define NULL_DEVICE "2>NUL"
+
 #if !defined(__MINGW32__) && !defined(__MINGW64__)
 #define popen _popen
 #define pclose _pclose
-#define NULL_DEVICE "2>NUL"
-#else
-#define NULL_DEVICE "2>/dev/null"
 #endif
 
 #else
