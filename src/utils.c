@@ -301,8 +301,8 @@ char *get_tag_from_hash(Arena *arena, const char *target_dir,
 	char buffer[128];
 
 	String *cmd_str =
-		string_concat_cstr(arena, 5, "git -C ", target_dir,
-						   " describe --tags --exact-match ", ref_hash, " ");
+		string_concat_cstr(arena, 5, "git -C \"", target_dir,
+						   "\" describe --tags --exact-match ", ref_hash, " ");
 	cmd_str = string_concat_cstr(arena, 2, string(cmd_str), NULL_DEVICE);
 
 	FILE *fp = popen(string(cmd_str), "r");
