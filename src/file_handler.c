@@ -268,51 +268,137 @@ int remove_directory(Arena *arena, const char *path) {
 	int r = -1;
 
 #if defined(_WIN32)
-	WIN32_FIND_DATAA find_data;
-	size_t search_len = path_len + 3;
-	char *search_path = arena_alloc(arena, search_len);
-	if (!search_path)
-		return -1;
-	snprintf(search_path, search_len, "%s/*", path);
+	// WIN32_FIND_DATAA find_data;
+	// size_t search_len = path_len + 3;
+	// char *search_path = arena_alloc(arena, search_len);
+	// if (!search_path)
+	// 	return -1;
+	// snprintf(search_path, search_len, "%s/*", path);
 
-	HANDLE hFind = FindFirstFileA(search_path, &find_data);
+	// HANDLE hFind = FindFirstFileA(search_path, &find_data);
+	// if (hFind != INVALID_HANDLE_VALUE) {
+	// 	r = 0;
+	// 	do {
+	// 		const char *d_name = find_data.cFileName;
+	// 		if (!strcmp(d_name, ".") || !strcmp(d_name, "..")) {
+	// 			continue;
+	// 		}
+
+	// 		int r2 = -1;
+	// 		size_t len = path_len + strlen(d_name) + 2;
+	// 		char *buf = arena_alloc(arena, len);
+
+	// 		if (buf) {
+	// 			snprintf(buf, len, "%s/%s", path, d_name);
+	// 			if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+	// 				r2 = remove_directory(arena, buf);
+	// 			} else {
+	// 				if (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+	// 					SetFileAttributesA(buf, find_data.dwFileAttributes &
+	// 												~FILE_ATTRIBUTE_READONLY);
+	// 				}
+	// 				r2 = _unlink(buf);
+	// 			}
+	// 		}
+	// 		r = r2;
+	// 	} while (!r && FindNextFileA(hFind, &find_data) != 0);
+	// 	FindClose(hFind);
+	// }
+
+	// if (!r) {
+	// 	DWORD attr = GetFileAttributesA(path);
+	// 	if (attr != INVALID_FILE_ATTRIBUTES &&
+	// 		(attr & FILE_ATTRIBUTE_READONLY)) {
+	// 		SetFileAttributesA(path, attr & ~FILE_ATTRIBUTE_READONLY);
+	// 	}
+	// 	r = _rmdir(path);
+	// }
+
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+	if (wlen <= 0)
+		return -1;
+
+	wchar_t *wpath = arena_alloc(arena, (wlen + 1) * sizeof(wchar_t));
+
+	if (!wpath)
+		return -1;
+
+	MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, wlen);
+	wpath[wlen] = L'\0';
+
+	size_t search_len = wcslen(wpath) + 3;
+	wchar_t *wsearch_path = arena_alloc(arena, search_len * sizeof(wchar_t));
+	if (!wsearch_path)
+		return -1;
+	swprintf(wsearch_path, search_len, L"%ls/*", wpath);
+
+	WIN32_FIND_DATAW find_data;
+	HANDLE hFind = FindFirstFileW(wsearch_path, &find_data);
+	r = 0;
+
 	if (hFind != INVALID_HANDLE_VALUE) {
-		r = 0;
 		do {
-			const char *d_name = find_data.cFileName;
-			if (!strcmp(d_name, ".") || !strcmp(d_name, "..")) {
+			wchar_t *d_name = find_data.cFileName;
+			if (!wcscmp(d_name, L".") || !wcscmp(d_name, L"..")) {
 				continue;
 			}
 
-			int r2 = -1;
-			size_t len = path_len + strlen(d_name) + 2;
-			char *buf = arena_alloc(arena, len);
+			size_t item_wlen = wcslen(wpath) + wcslen(d_name) + 2;
+			wchar_t *wbuf = arena_alloc(arena, item_wlen * sizeof(wchar_t));
+			if (!wbuf) {
+				r = -1;
+				break;
+			}
+			swprintf(wbuf, item_wlen, L"%ls/%ls", wpath, d_name);
 
-			if (buf) {
-				snprintf(buf, len, "%s/%s", path, d_name);
-				if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-					r2 = remove_directory(arena, buf);
-				} else {
-					if (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-						SetFileAttributesA(buf, find_data.dwFileAttributes &
-													~FILE_ATTRIBUTE_READONLY);
-					}
-					r2 = _unlink(buf);
+			if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+				int u8_len = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, NULL, 0,
+												 NULL, NULL);
+				char *u8_buf = arena_alloc(arena, u8_len);
+				if (!u8_buf) {
+					r = -1;
+					break;
+				}
+				WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, u8_buf, u8_len, NULL,
+									NULL);
+
+				if (remove_directory(arena, u8_buf) < 0) {
+					r = -1;
+				}
+			} else {
+				if (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+					SetFileAttributesW(wbuf, find_data.dwFileAttributes &
+												 ~FILE_ATTRIBUTE_READONLY);
+				}
+				if (_wunlink(wbuf) < 0) {
+					r = -1;
 				}
 			}
-			r = r2;
-		} while (!r && FindNextFileA(hFind, &find_data) != 0);
+		} while (FindNextFileW(hFind, &find_data) != 0);
 		FindClose(hFind);
+	} else {
+		r = -1;
 	}
 
-	if (!r) {
-		DWORD attr = GetFileAttributesA(path);
+	if (r == 0) {
+		DWORD attr = GetFileAttributesW(wpath);
 		if (attr != INVALID_FILE_ATTRIBUTES &&
 			(attr & FILE_ATTRIBUTE_READONLY)) {
-			SetFileAttributesA(path, attr & ~FILE_ATTRIBUTE_READONLY);
+			SetFileAttributesW(wpath, attr & ~FILE_ATTRIBUTE_READONLY);
 		}
-		r = _rmdir(path);
+
+		int retries = 5;
+		while (retries > 0) {
+			if (_wrmdir(wpath) == 0) {
+				r = 0;
+				break;
+			}
+			r = -1;
+			Sleep(50);
+			retries--;
+		}
 	}
+
 #else
 	DIR *d = opendir(path);
 
