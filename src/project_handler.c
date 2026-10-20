@@ -78,28 +78,6 @@ String *get_archiever(Arena *arena) {
 	return string_from(arena, "");
 }
 
-bool is_platform_element(char *entry, char **out_flag) {
-	char *colon = strchr(entry, ':');
-
-	if (colon == NULL || entry[0] == '-') {
-		*out_flag = entry;
-		return true;
-	}
-
-	size_t os_len = (size_t)(colon - entry);
-
-	bool match = (strlen(CURRENT_OS) == os_len &&
-				  strncmp(entry, CURRENT_OS, os_len) == 0) ||
-				 (IS_UNIX && os_len == 4 && strncmp(entry, "unix", 4) == 0);
-
-	if (match) {
-		*out_flag = colon + 1;
-		return true;
-	}
-
-	return false;
-}
-
 int init_project() {
 	int ret = 0, dir_create_status = 0, file_create_status = 0;
 	if (file_exists("./composition.json")) {
@@ -314,8 +292,22 @@ String *build_project(Arena *global_str_arena) {
 				 conf->exclude_dirs);
 
 	for (int i = 0; i < length(conf->exclude_exception); i++) {
-		set_add(src_arr, string(at(String *, conf->exclude_exception, i)));
-		set_add(header_arr, string(at(String *, conf->exclude_exception, i)));
+		char *raw_entry = string(at(String *, conf->exclude_exception, i));
+		char *excluded = NULL;
+
+		if (!is_platform_element(raw_entry, &excluded)) {
+			continue;
+		}
+
+		size_t ex_len = strlen(excluded);
+		if (ex_len == 0)
+			continue;
+
+		// set_add(src_arr, string(at(String *, conf->exclude_exception, i)));
+		// set_add(header_arr, string(at(String *, conf->exclude_exception,
+		// i)));
+		set_add(src_arr, excluded);
+		set_add(header_arr, excluded);
 	}
 
 	printf("[+] done!\n");

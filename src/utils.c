@@ -1,5 +1,37 @@
 #include <flint.h>
 
+bool is_platform_element(char *entry, char **out_flag) {
+	char *colon = strchr(entry, ':');
+
+	if (colon == NULL) {
+		*out_flag = entry;
+		return true;
+	}
+
+	// if (colon == NULL || entry[0] == '-') {
+	// 	*out_flag = entry;
+	// 	return true;
+	// }
+
+	size_t os_len = (size_t)(colon - entry);
+
+	if (entry[0] == '-' || os_len <= 1) {
+		*out_flag = entry;
+		return true;
+	}
+
+	bool match = (strlen(CURRENT_OS) == os_len &&
+				  strncmp(entry, CURRENT_OS, os_len) == 0) ||
+				 (IS_UNIX && os_len == 4 && strncmp(entry, "unix", 4) == 0);
+
+	if (match) {
+		*out_flag = colon + 1;
+		return true;
+	}
+
+	return false;
+}
+
 String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
 	String *output = NULL;
 
@@ -75,12 +107,30 @@ Vector *remove_excludes(Vector *collected, Vector *excludes) {
 
 	Vector *vec = vector_init(String *);
 	for (int i = 0; i < length(collected); i++) {
+		char *item_str = string(at(String *, collected, i));
 		bool present = false;
 		for (int j = 0; j < length(excludes); j++) {
-			if (STR_CMP(string(at(String *, collected, i)),
-						string(at(String *, excludes, j))) == 0) {
-				present = true;
-				break;
+			char *raw_entry = string(at(String *, excludes, j));
+			char *excluded = NULL;
+			if (!is_platform_element(raw_entry, &excluded)) {
+				continue;
+			}
+
+			size_t ex_len = strlen(excluded);
+
+			if (ex_len == 0) {
+				continue;
+			}
+
+			if (strncmp(item_str, excluded, ex_len) == 0) {
+				if (item_str[ex_len] == '\0' || item_str[ex_len] == '/'
+#if defined(_WIN32)
+					|| item_str[ex_len] == '\\'
+#endif
+				) {
+					present = true;
+					break;
+				}
 			}
 		}
 
