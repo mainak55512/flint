@@ -261,7 +261,7 @@ int init_project() {
 	}
 	conf->version = string_from(conf->arena, "unknown");
 	write_flint_composition("composition.json", conf);
-	printf("[+] Flint project '%s' successfully initiated\n",
+	printf("[✓] Flint project '%s' successfully initiated\n",
 		   string(conf->project_name));
 	generate_compile_commands(conf);
 
@@ -310,7 +310,7 @@ String *build_project(Arena *global_str_arena) {
 		set_add(header_arr, excluded);
 	}
 
-	printf("[+] done!\n");
+	printf("[✓] done!\n");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
 
 	printf("[+] Compilation started\n");
@@ -506,7 +506,7 @@ String *build_project(Arena *global_str_arena) {
 				goto CLEANUP;
 			}
 
-			printf("[+] Compiled '%s'\n", full_path_src);
+			printf("[✓] Compiled '%s'\n", full_path_src);
 		}
 	}
 
@@ -545,7 +545,7 @@ String *build_project(Arena *global_str_arena) {
 			output = string_from(global_str_arena, "");
 			goto CLEANUP;
 		}
-		printf("[+] Executable generated\n");
+		printf("[✓] Executable generated\n");
 	} else {
 		output = string_concat_cstr(global_str_arena, 2, "./build/",
 									string(conf->project_name));

@@ -350,6 +350,11 @@ bool check_if_dep_path(const char *str) {
 }
 
 bool starts_with(char *str, char *prefix) {
+	char *colon = strchr(str, ':');
+	if (colon) {
+		char *path = colon + 1;
+		return strncmp(path, prefix, strlen(prefix)) == 0;
+	}
 	return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
