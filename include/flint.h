@@ -167,7 +167,7 @@ int copy_file(const char *src_path, const char *dest_path);
 bool file_exists(const char *file_name);
 void add_local_lib(int lib_count, char **lib_link);
 void add_flag(int lib_count, char **lib_link);
-bool check_if_dep_path(const char *str);
+// bool check_if_dep_path(const char *str);
 int remove_directory(Arena *arena, const char *path);
 char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);

@@ -338,16 +338,16 @@ void set_add(Vector *v, char *elem) {
 	}
 }
 
-bool check_if_dep_path(const char *str) {
-	size_t len_prefix = strlen("deps");
-	size_t len_str = strlen(str);
+// bool check_if_dep_path(const char *str) {
+// 	size_t len_prefix = strlen("deps");
+// 	size_t len_str = strlen(str);
 
-	if (len_str < len_prefix) {
-		return false;
-	}
+// 	if (len_str < len_prefix) {
+// 		return false;
+// 	}
 
-	return strncmp(str, "deps", len_prefix) == 0;
-}
+// 	return strncmp(str, "deps", len_prefix) == 0;
+// }
 
 bool starts_with(char *str, char *prefix) {
 	char *colon = strchr(str, ':');
