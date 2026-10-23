@@ -1,0 +1,123 @@
+name: Full test
+on:
+  schedule:
+    - cron: '0 23 * * *' # run at 11 PM UTC
+  # Allow manual runs
+  workflow_dispatch:
+env:
+  IPV6: 0
+jobs:
+
+  test_f7:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/stm32/nucleo-f746zg/minimal test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_f4:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/stm32/nucleo-f429zi/minimal test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_h743:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/stm32/nucleo-h743zi/minimal test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_h723:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/stm32/nucleo-h723zg/minimal test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_h5:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/stm32/nucleo-h563zi/minimal test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_rt1020:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/nxp/rt1020-evk-make-baremetal-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+    - run: make -C tutorials/nxp/rt1020-evk-make-freertos-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_rt1060:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/nxp/rt1060-evk-make-baremetal-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+    - run: make -C tutorials/nxp/rt1060-evk-make-freertos-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_rt1170:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/nxp/rt1170-evk-make-baremetal-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+    - run: make -C tutorials/nxp/rt1170-evk-make-freertos-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_ra6m4:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 3 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run: make -C tutorials/renesas/ek-ra6m4-make-baremetal-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+#    - run: make -C tutorials/renesas/ek-ra6m4-make-freertos-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_tm4c:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run:  make -C tutorials/ti/ek-tm4c1294xl-make-baremetal-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+    - run:  make -C tutorials/ti/ek-tm4c1294xl-make-freertos-builtin test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_same54:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - name: baremetal
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run:  make -C tutorials/http/device-dashboard/microchip/same54-xpro test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+    - run:  make -C tutorials/mqtt/mqtt-client/microchip/same54-xpro test VCON_API_KEY=${{secrets.VCON_API_KEY}}
+
+  test_pico_w5500:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - name: SDK
+      run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+    - run:  make -C tutorials/rp/w5500-evb-pico test VCON_API_KEY=${{secrets.VCON_API_KEY}}

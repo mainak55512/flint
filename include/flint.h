@@ -7,10 +7,12 @@
 #include <cstring.h>
 #include <ctype.h>
 #include <errno.h>
+#include <mongoose.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <yyjson.h>
 
 #if defined(_WIN32)
@@ -124,6 +126,8 @@ bool set_contains_str(Vector *v, String *elem);
 void set_add_str(Vector *v, String *elem);
 char *safe_str(String *s);
 Config *config_init();
+Sync_config *read_sync_config(Arena *arena, yyjson_val *val);
+void sync_config_free(Sync_config *conf);
 void config_free(Config *conf);
 void read_flint_composition(char *composition_path, Config *conf);
 void write_flint_composition(char *composition_path, Config *conf);
@@ -194,5 +198,6 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync);
 String *join_vec_to_str(Arena *arena, Vector *v, String *sep);
 bool is_platform_element(char *entry, char **out_flag);
+Sync_config *get_remote_composition(Arena *arena, char *fragment);
 
 #endif // FLINT_H

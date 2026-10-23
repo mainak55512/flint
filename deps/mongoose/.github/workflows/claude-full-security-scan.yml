@@ -1,0 +1,181 @@
+name: Claude Full Codebase Security Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt_path:
+        description: "Path to the repo prompt file Claude should read"
+        required: true
+        default: "resources/specs/claude-security-scan.md"
+      target_ref:
+        description: "Branch, tag, or SHA to scan"
+        required: false
+        default: ""
+  #schedule:
+    # Weekly scan: Sunday 02:00 UTC
+  #  - cron: "0 2 * * 0"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: claude-full-codebase-security-scan-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Full codebase security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DEFAULT_PROMPT_PATH: "resources/specs/claude-security-scan.md"
+
+    steps:
+      - name: Resolve scan inputs
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PROMPT_PATH="${{ inputs.prompt_path }}"
+            TARGET_REF="${{ inputs.target_ref }}"
+          else
+            PROMPT_PATH="${DEFAULT_PROMPT_PATH}"
+            TARGET_REF=""
+          fi
+
+          if [ -z "$TARGET_REF" ]; then
+            TARGET_REF="${{ github.ref }}"
+          fi
+
+          echo "prompt_path=$PROMPT_PATH" >> "$GITHUB_OUTPUT"
+          echo "target_ref=$TARGET_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.vars.outputs.target_ref }}
+          fetch-depth: 0
+
+      - name: Verify prompt file exists
+        shell: bash
+        run: |
+          test -f "${{ steps.vars.outputs.prompt_path }}" || {
+            echo "Prompt file not found: ${{ steps.vars.outputs.prompt_path }}"
+            exit 1
+          }
+
+      - name: Run Claude full codebase security scan
+        id: claude_scan
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 30
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            REF: ${{ steps.vars.outputs.target_ref }}
+            PROMPT_FILE: ${{ steps.vars.outputs.prompt_path }}
+
+            You are running a full-codebase security scan in GitHub Actions.
+
+            First, read the main prompt file at:
+            ${{ steps.vars.outputs.prompt_path }}
+
+            Treat that file as the authoritative security-review instruction set. You will also
+            read and analyze additional prompt files mentioned in the main prompt file by their absolute paths in the repo, 
+            as per the instructions found in it.
+
+            Scan the checked-out repository as a whole codebase.
+            Do not modify files.
+            Do not create commits.
+            Do not open pull requests.
+            Do not post GitHub comments.
+            Do not create GitHub issues.
+
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Bash(git:*),Bash(find:*),Bash(grep:*),Bash(sed:*),Bash(cat:*)"
+            --model claude-opus-5
+
+      - name: Prepare private security scan outputs
+        if: always() && steps.claude_scan.outputs.execution_file != ''
+        id: prepare_outputs
+        shell: bash
+        run: |
+          set -u
+          mkdir -p private-scan-results
+          TODAY="$(date -u +%Y%m%d)"
+          EXECUTION_OUTPUT_FILE="claude-execution-output_${TODAY}.json"
+          FINDINGS_FILE="security-findings_${TODAY}.json"
+
+          HAS_EXECUTION_OUTPUT="false"
+          HAS_JSON_FINDINGS="false"
+
+          echo "date_suffix=${TODAY}" >> "$GITHUB_OUTPUT"
+          echo "execution_output_file=${EXECUTION_OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+          echo "findings_file=${FINDINGS_FILE}" >> "$GITHUB_OUTPUT"
+
+          # First check whether the raw Claude execution output exists.
+          if [ -f "${{ steps.claude_scan.outputs.execution_file }}" ]; then
+            jq '
+              map(select(.type == "result"))
+              ' "${{ steps.claude_scan.outputs.execution_file }}" > "private-scan-results/${EXECUTION_OUTPUT_FILE}"
+            HAS_EXECUTION_OUTPUT="true"
+
+            if jq -r '
+              .[]
+              | select(.type == "result")
+              | .result
+              | sub("^[^{]*"; "")
+            ' "${{ steps.claude_scan.outputs.execution_file }}" \
+              | jq . > "private-scan-results/${FINDINGS_FILE}"
+            then
+              if jq -e '.findings and .analysis_summary' "private-scan-results/${FINDINGS_FILE}" > /dev/null; then
+                HAS_JSON_FINDINGS="true"
+              else
+                rm -f "private-scan-results/${FINDINGS_FILE}"
+              fi
+            else
+              rm -f "private-scan-results/${FINDINGS_FILE}"
+            fi
+          fi
+
+          echo "has_execution_output=${HAS_EXECUTION_OUTPUT}" >> "$GITHUB_OUTPUT"
+          echo "has_json_findings=${HAS_JSON_FINDINGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Push scan outputs to private security repo
+        if: always() && steps.prepare_outputs.outputs.has_execution_output == 'true'
+        env:
+          SECURITY_RESULTS_TOKEN: ${{ secrets.SECURITY_RESULTS_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESULTS_REPO="cesanta/security"
+          WORKDIR="$(mktemp -d)"
+
+          git clone "https://x-access-token:${SECURITY_RESULTS_TOKEN}@github.com/${RESULTS_REPO}.git" "$WORKDIR"
+
+          mkdir -p "$WORKDIR/files"
+
+          cp "private-scan-results/${{ steps.prepare_outputs.outputs.execution_output_file }}" "$WORKDIR/files/"
+
+          if [ "${{ steps.prepare_outputs.outputs.has_json_findings }}" = "true" ]; then
+            cp "private-scan-results/${{ steps.prepare_outputs.outputs.findings_file }}" "$WORKDIR/files/"
+          fi
+
+          cd "$WORKDIR"
+
+          git config user.name "security-scan-bot"
+          git config user.email "security-scan-bot@users.noreply.github.com"
+
+          git add files/
+
+          if git diff --cached --quiet; then
+            echo "No scan outputs to commit."
+            exit 0
+          fi
+
+          git commit -m "Add security scan results ${{ steps.prepare_outputs.outputs.date_suffix }}"
+          git push

@@ -1,0 +1,779 @@
+name: Full build
+on:
+  schedule:
+    - cron: '17 22 * * *' # run at 10:17 PM UTC
+  # Allow manual runs
+  workflow_dispatch:
+env:
+  IPV6: 0
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+        target: [test]
+        ssl: ["", BUILTIN, MBEDTLS, OPENSSL, WOLFSSL]
+        select: ["-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=0", "-DMG_ENABLE_POLL=1 -DMG_ENABLE_EPOLL=0", "-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=1"]
+        exclude:
+        - ssl: MBEDTLS
+          select: "-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=0"
+        - ssl: MBEDTLS
+          select: "-DMG_ENABLE_POLL=1 -DMG_ENABLE_EPOLL=0"
+        - ssl: OPENSSL
+          select: "-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=0"
+        - ssl: OPENSSL
+          select: "-DMG_ENABLE_POLL=1 -DMG_ENABLE_EPOLL=0"
+        - ssl: WOLFSSL
+          select: "-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=0"
+        - ssl: WOLFSSL
+          select: "-DMG_ENABLE_POLL=1 -DMG_ENABLE_EPOLL=0"
+        include:
+        - ssl: BUILTIN
+          cc: gcc
+          target: test
+          select: "-DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=1 -DMG_ENABLE_CHACHA20=0"
+    name: linux ${{ matrix.target }} CC=${{ matrix.cc }} SSL=${{ matrix.ssl }} TFLAGS=${{ matrix.select }}
+    env:
+      CC: ${{ matrix.cc }}
+      SSL: ${{ matrix.ssl }}
+      TFLAGS: ${{ matrix.select }} -DMQTT_LOCALHOST -DNO_ABORT
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: sudo apt -y update ; sudo apt -y install libmbedtls-dev libwolfssl-dev && test/setup_mqtt_server.sh && make -C test ${{ matrix.target }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/linux_${{ matrix.target }}_${{ matrix.cc }}_${{ matrix.ssl }}_${{ matrix.select }}_$(date +"%Y%m%d").json"
+
+  c89:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [diabish, ppc_diabish]
+        ssl: ["", BUILTIN]
+    name: C89 ${{ matrix.target }} SSL=${{ matrix.ssl }}
+    env:
+      SSL: ${{ matrix.ssl }}
+      TFLAGS: -DMG_ENABLE_POLL=0 -DMG_ENABLE_EPOLL=0 -DMG_ENABLE_CHACHA20=0 -DMQTT_LOCALHOST -DNO_ZU_TEST
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: | # GH runners seem to overflow the 32-bit FS for the QEMU PPC (works for me in RHEL9)
+        if [[ "${{ matrix.target }}" = ppc_* ]]; then export TFLAGS="$TFLAGS -D_FILE_OFFSET_BITS=64"; fi
+        sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && ./test/setup_mqtt_server.sh && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test ${{ matrix.target }}
+
+  mip:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+        target: [mip_test, mip_tap_test]
+        ssl: ["", BUILTIN, MBEDTLS, OPENSSL, WOLFSSL]
+    name: ${{ matrix.target }} CC=${{ matrix.cc }} SSL=${{ matrix.ssl }}
+    env:
+      CC: ${{ matrix.cc }}
+      SSL: ${{ matrix.ssl }}
+      IPV6: 1
+      TFLAGS: -DMQTT_HOST -DIPV6_NOROUTING -DNO_ABORT  # -DMQTT_HOST_NAME=\"server\"
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    # WolfSSL version (5.6.6) in current GH runner (Ubuntu 24.04) is broken for EC
+    # https://github.com/wolfSSL/wolfssl/pull/10065
+    - name: Build non-broken WolfSSL version
+      if: matrix.ssl == 'WOLFSSL'
+      run: |
+        sudo apt -y update
+        sudo apt -y install autoconf automake libtool
+        git clone --depth 1 --branch v5.9.1-stable https://github.com/wolfSSL/wolfssl
+        cd wolfssl
+        ./autogen.sh
+        ./configure --prefix="$GITHUB_WORKSPACE/wolfssl-install" --enable-all
+        make -j"$(nproc)"
+        make install
+        echo "WOLFSSL=$GITHUB_WORKSPACE/wolfssl-install" >> "$GITHUB_ENV"
+        echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/wolfssl-install/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+        if [ "${{ matrix.cc }}" = "g++" ] || [ "${{ matrix.cc }}" = "clang++" ]; then
+          echo "TFLAGS=$TFLAGS -DWOLFSSL_USE_OPTIONS_H -Wno-pedantic" >> "$GITHUB_ENV"
+        else
+          echo "TFLAGS=$TFLAGS -DWOLFSSL_USE_OPTIONS_H" >> "$GITHUB_ENV"
+        fi
+    - run: if [ "${{ matrix.target }}" == "mip_tap_test" ]; then source ./test/setup_ga_network.sh ; sed -i -e "s/127.0.0.1//" test/mosquitto.conf; cat test/mosquitto.conf; ./test/setup_mqtt_server.sh; fi && sudo apt -y update ; sudo apt -y install libmbedtls-dev libwolfssl-dev && make -C test ${{ matrix.target }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/${{ matrix.target }}_${{ matrix.cc }}_${{ matrix.ssl }}_$(date +"%Y%m%d").json"
+  mip89:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [mip_vc98, mip_diabish, mip_ppc_diabish]
+        ipv6: [0, 1]
+    name: MIP C89 ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+  mipbe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [mip_s390, mip_port_s390, mip_ppc, mip_port_ppc, mip_mips, mip_port_mips]
+        ipv6: [0, 1]
+        ssl: ["", BUILTIN]
+    name: MIP be ${{ matrix.target }} IPV6=${{ matrix.ipv6 }} SSL=${{ matrix.ssl }}
+    env:
+      TFLAGS: -DMQTT_HOST -DIPV6_NOROUTING
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: |
+        sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        if [[ "${{ matrix.target }}" == *port* ]]; then source ./test/setup_ga_network.sh ; export ENV="-e Tmp=. -e WINEDEBUG=-all -e HOST_IP -e HOST_IPV6 -e HOST_IFC" ; sed -i -e "s/127.0.0.1//" test/mosquitto.conf; cat test/mosquitto.conf; ./test/setup_mqtt_server.sh ; make -C test port_tap_bridge ; test/port_tap_bridge & sleep 2 ; fi
+        make -C test ${{ matrix.target }} IPV6=${{ matrix.ipv6 }} SSL=${{ matrix.ssl }} MULTIREC=NO
+
+  l2:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+        target: [eth_test, ppp_test]
+        ipv6: [0, 1]
+    name: L2 ${{ matrix.target }} CC=${{ matrix.cc }} IPV6=${{ matrix.ipv6 }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: make -C test ${{ matrix.target }} IPV6=${{ matrix.ipv6 }} CC=${{ matrix.cc }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/${{ matrix.target }}_${{ matrix.cc }}_${{ matrix.ipv6 }}_$(date +"%Y%m%d").json"
+  l289:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [eth_vc98, ppp_vc98]
+        ipv6: [0, 1]
+    name: L2 C89 ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: make -C test ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+  l2be:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [eth_s390, ppp_s390]
+        ipv6: [0, 1]
+    name: L2 be ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test ${{ matrix.target }} IPV6=${{ matrix.ipv6 }}
+  pppoe_vlan: # run tests, build tests performed by the l2 job may not catch runtime alignment and protocol issues, etc.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+        ipv6: [0, 1]
+    name: PPPoE over VLAN CC=${{ matrix.cc }} IPV6=${{ matrix.ipv6 }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: |
+        source ./test/setup_ga_network.sh
+        make -C test pppoe_tap_test CC=${{ matrix.cc }} IPV6=${{ matrix.ipv6 }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/pppoe-vlan_${{ matrix.cc }}_${{ matrix.ipv6 }}_$(date +"%Y%m%d").json"
+
+  atcmd:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+    name: ATcmd CC=${{ matrix.cc }}
+    env:
+      IPV6: 0 # makes no sense, shorten code
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: make -C test atcmd_test CC=${{ matrix.cc }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/ATcmd_${{ matrix.cc }}_$(date +"%Y%m%d").json"
+  atcmd89:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [atcmd_vc98]
+    name: ATcmd C89 ${{ matrix.target }}
+    env:
+      IPV6: 0 # makes no sense, shorten code
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: make -C test ${{ matrix.target }}
+  atcmdbe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [atcmd_s390]
+    name: ATcmd be ${{ matrix.target }}
+    env:
+      IPV6: 0 # makes no sense, shorten code
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test ${{ matrix.target }}
+
+  bsd:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang, g++, clang++]
+    name: bsd CC=${{ matrix.cc }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: |
+        source ./test/setup_ga_network.sh
+        make -C test/bsd shm_tap_bridge
+        test/bsd/shm_tap_bridge &
+        sleep 2
+        make -C test/bsd CC=${{ matrix.cc }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/bsd_${{ matrix.cc }}_$(date +"%Y%m%d").json"
+
+  bsdbe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [bsd_s390]
+    name: bsd be ${{ matrix.target }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: |
+        sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        source ./test/setup_ga_network.sh
+        make -C test port_tap_bridge
+        test/port_tap_bridge &
+        sleep 2
+        make -C test/bsd ${{ matrix.target }}
+
+  s390:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN]
+    name: S390 SSL=${{ matrix.ssl }}
+    env:
+      TFLAGS: -DMQTT_LOCALHOST
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && ./test/setup_mqtt_server.sh && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test s390 SSL=${{ matrix.ssl }} MULTIREC=NO
+  armhf:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN]
+    name: ArmHF SSL=${{ matrix.ssl }}
+    env:
+      TFLAGS: -DMQTT_LOCALHOST
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install binfmt-support qemu-user-static && ./test/setup_mqtt_server.sh && docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && make -C test armhf SSL=${{ matrix.ssl }} MULTIREC=NO
+  unamalgamated-mg_prefix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN, MBEDTLS, OPENSSL, WOLFSSL]
+    name: unamalgamated-mg_prefix SSL=${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install libmbedtls-dev libwolfssl-dev
+    - run: make -C test unamalgamated SSL=${{ matrix.ssl }} && make -C test mg_prefix
+  valgrind:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN, MBEDTLS, OPENSSL, WOLFSSL]
+    name: Valgrind SSL=${{ matrix.ssl }}
+    env:
+      TFLAGS: -DMQTT_LOCALHOST
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: sudo apt -y update ; sudo apt -y install libmbedtls-dev libwolfssl-dev valgrind
+    - run: ./test/setup_mqtt_server.sh && make -C test valgrind SSL=${{ matrix.ssl }}
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN, MBEDTLS, OPENSSL, WOLFSSL]
+        select: [-DMG_ENABLE_POLL=0, -DMG_ENABLE_POLL=1]
+        exclude:
+        - ssl: MBEDTLS
+          select: -DMG_ENABLE_POLL=0
+        - ssl: OPENSSL
+          select: -DMG_ENABLE_POLL=0
+        - ssl: WOLFSSL
+          select: -DMG_ENABLE_POLL=0
+    name: macos SSL=${{ matrix.ssl }} TFLAGS=${{ matrix.select }}
+    env:
+      SSL: ${{ matrix.ssl }}
+      TFLAGS: ${{ matrix.select }} -DMQTT_LOCALHOST ${{ matrix.env.tflags }} -DNO_ABORT -Wno-sign-conversion -Wno-undef # Workarounds for MbedTLS
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: brew install mbedtls wolfssl mosquitto gawk # jq openssl already pre-installed
+    - run: /opt/homebrew/opt/mosquitto/sbin/mosquitto -c /Users/runner/work/mongoose/mongoose/test/mosquitto.conf.macos &
+    - run: make -C test test ASAN_OPTIONS= MBEDTLS=$(echo $(brew --cellar)/mbedtls*/*) OPENSSL=$(echo $(brew --cellar)/openssl*/*) WOLFSSL=$(echo $(brew --cellar)/wolfssl*/*) > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/macos_test_cc_${{ matrix.ssl }}_${{ matrix.select }}_$(date +"%Y%m%d").json"
+
+  windows:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1   # no parallel runs, to minimize MQTT errors
+      matrix:
+        target: [vc98, vc17, vc22, mingw, mingw++] # current mdash/mingw image compiler does not have support for %zu; test disabled below
+        ssl: ["", BUILTIN]
+        select: [-DMG_ENABLE_POLL=0, -DMG_ENABLE_POLL=1]
+        exclude:
+        - target: vc98
+          select: -DMG_ENABLE_POLL=1
+    name: windows ${{ matrix.target }} SSL=${{ matrix.ssl }} TFLAGS=${{ matrix.select }}
+    env:
+      SSL: ${{ matrix.ssl }}
+      TFLAGS: ${{ matrix.select }} -DMQTT_LOCALHOST -DNO_ABORT 
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: if [ "${{ matrix.target }}" == "mingw" ]; then export TFLAGS="$TFLAGS -DNO_ZU_TEST"; fi && ./test/setup_mqtt_server.sh && make -C test ${{ matrix.target }} > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/windows_${{ matrix.target }}_${{ matrix.cc }}_${{ matrix.ssl }}_${{ matrix.select }}_$(date +"%Y%m%d").json"
+
+  arm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN]
+    name: Arm SSL=${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+    - run: make -C test arm SSL=${{ matrix.ssl }}
+  riscv:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: ["", BUILTIN]
+    name: RISC-V SSL=${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+    - run: make -C test riscv SSL=${{ matrix.ssl }}
+
+  tutorials:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: [-DMG_TLS=MG_TLS_NONE, -DMG_TLS=MG_TLS_BUILTIN]
+    name: tutorials ${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+    - uses: webfactory/ssh-agent@v0.10.0
+      with:
+            ssh-private-key: ${{ secrets.HEALTH_TESTS_SSH_KEY }}
+    - run: sudo apt -y install libpcap-dev
+    - run: make -C test tutorials CFLAGS_EXTRA="${{ matrix.ssl }}" > log
+    - if: success() || failure()
+      run: |
+        cat log
+        test/health.awk < log > json
+        scp -o "StrictHostKeyChecking=no" json "root@176.9.217.245:/data/downloads/health/tutorials_${{ matrix.ssl }}_$(date +"%Y%m%d").json"
+    - run: make -C test clean_tutorials
+
+  tutorials_win:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: [-DMG_TLS=MG_TLS_NONE, -DMG_TLS=MG_TLS_BUILTIN]
+    name: tutorials_win ${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+#    - uses: egor-tensin/setup-mingw@v2
+#      with:
+#        platform: x64
+    - name: test they build
+      run: make -C test tutorials_win CFLAGS_EXTRA="${{ matrix.ssl }}"
+      shell: cmd
+    - name: test they clean
+      run: make -C test clean_tutorials_win
+      shell: cmd
+  tutorials_mac:
+    runs-on: macos-latest
+    env: { HOMEBREW_NO_AUTO_UPDATE: 1 }
+    strategy:
+      fail-fast: false
+      matrix:
+        ssl: [-DMG_TLS=MG_TLS_NONE, -DMG_TLS=MG_TLS_BUILTIN]
+    name: tutorials_mac ${{ matrix.ssl }}
+    steps:
+    - uses: actions/checkout@v5
+    - run: make -C test tutorials_mac CFLAGS_EXTRA="${{ matrix.ssl }}"
+    - run: make -C test clean_tutorials_mac
+
+
+  arduino:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+    - run: echo # nothing specific to install or do
+    - run: make -C test/arduino
+    - run: make -C test/arduino cleanall
+
+
+#  wizard_examples:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        example:
+#          - path: esp32/esp32-idf
+#    name: ${{ matrix.example.path }}
+#    env:
+#      GO: 0
+#    steps:
+#      - uses: actions/checkout@v5
+#        with: { fetch-depth: 2 }
+#      - run: echo # nothing specific to install or do
+#          fi
+#      - run: make -C tutorials/${{ matrix.example.path }} build
+
+  wizard_examples_arm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: infineon-nxp
+            examples: |
+              infineon/xmc47_relax-make-baremetal-builtin
+              infineon/xmc_plt2go_4400-make-baremetal-builtin
+              infineon/xmc72_evk-make-baremetal-builtin
+              nxp/frdm-mcxn947-make-baremetal-builtin
+              nxp/frdm-mcxn947-make-freertos-builtin
+              nxp/rt1020-evk-make-baremetal-builtin
+              nxp/rt1060-evk-make-baremetal-builtin
+              nxp/rt1170-evk-make-baremetal-builtin
+          - group: rp-ti
+            examples: |
+              rp/pico-w
+              rp/w5500-evb-pico
+              rp/w55rp20-evb-pico
+              rp/pico-rndis
+              ti/ek-tm4c1294xl-make-baremetal-builtin
+              ti/ek-tm4c1294xl-make-freertos-builtin
+          - group: stm32-1
+            examples: |
+              stm32/nucleo-f429zi/minimal
+              stm32/nucleo-f746zg/minimal
+              stm32/nucleo-f746zg/minimal-pppoe
+              stm32/nucleo-f756zg/minimal
+              stm32/nucleo-h563zi/minimal
+              stm32/nucleo-h723zg/minimal
+          - group: stm32-2
+            examples: |
+              stm32/nucleo-h743zi/minimal
+              stm32/nucleo-n657x0-q/minimal
+              stm32/nucleo-u5a5zj-q/minimal
+              stm32/portenta-h7/minimal
+              stm32/stm32h573i-dk/minimal
+              stm32/stm32h747i-disco/minimal
+    name: wizard ARM ${{ matrix.group }}
+    env:
+      GO: 0
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+      - run: |
+          failed=0
+          sep=
+          examples='${{ matrix.examples }}'
+          for x in $examples; do
+            echo "========== $x =========="
+            if make -C "tutorials/$x" build; then
+              ok=true
+              echo "SUCCESS: $x"
+            else
+              ok=false
+              failed=1
+              echo "FAILURE: $x"
+            fi
+            printf 'HEALTH_DASHBOARD\t%s"%s": %s\n' "$sep" "$x" "$ok"
+            sep=,
+          done
+          exit $failed
+
+
+  generic_examples:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - path: micropython/esp32
+          - path: http/uart-bridge/esp32
+          - path: http/http-client/esp8266/http-client-server
+    name: ${{ matrix.example.path }}
+    env:
+      GO: 0
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: echo # nothing specific to install or do
+      - run: make -C tutorials/${{ matrix.example.path }} build
+
+  generic_examples_arm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: nxp-1
+            examples: |
+              nxp/nxp-frdmk66f-freertos
+              nxp/nxp-lpcxpresso54s018m-freertos
+              nxp/nxp-mimxrt1020-freertos
+              nxp/nxp-evkbimxrt1050-lwip-freertos
+              nxp/nxp-evkmimxrt1020-lwip-freertos
+              nxp/nxp-evkmimxrt1024-lwip-freertos
+              nxp/nxp-evkmimxrt1060-lwip-freertos
+              nxp/nxp-evkmimxrt1064-lwip-freertos
+              nxp/nxp-evkmimxrt1160-cm7-lwip-freertos
+          - group: nxp-2
+            examples: |
+              nxp/nxp-evkmimxrt1170-cm7-lwip-freertos
+              nxp/nxp-frdmk64f-lwip-freertos
+              nxp/nxp-frdmk66f-lwip-freertos
+              nxp/nxp-lpcxpresso54018-lwip-freertos
+              nxp/nxp-lpcxpresso54608-lwip-freertos
+              nxp/nxp-lpcxpresso54618-lwip-freertos
+              nxp/nxp-lpcxpresso54628-lwip-freertos
+              nxp/nxp-twrk65f180m-lwip-freertos
+              nxp/nxp-twrkv58f220m-lwip-freertos
+          - group: other
+            examples: |
+              mqtt/mqtt-client/microchip/same54-xpro
+              rp/pico-rmii
+              stm32/nucleo-f746zg/minimal-rm2
+              stm32/nucleo-f746zg/minimal-rndis
+              stm32/nucleo-f429zi/minimal-rm2
+              stm32/nucleo-f429zi/minimal-rndis
+              stm32/nucleo-g031k8/minimal-w5500
+              ti/ti-ek-tm4c1294xl-http-server
+              ti/ek-tm4c1294xl-make-baremetal-builtin-rndis
+    name: generic ARM ${{ matrix.group }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+      - run: |
+          failed=0
+          sep=
+          examples='${{ matrix.examples }}'
+          for x in $examples; do
+            echo "========== $x =========="
+            if make -C "tutorials/$x" build; then
+              ok=true
+              echo "SUCCESS: $x"
+            else
+              ok=false
+              failed=1
+              echo "FAILURE: $x"
+            fi
+            printf 'HEALTH_DASHBOARD\t%s"%s": %s\n' "$sep" "$x" "$ok"
+            sep=,
+          done
+          exit $failed
+
+  device_dashboard_examples:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - path: esp32
+    name: ${{ matrix.example.path }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: echo # nothing specific to install or do
+      - run: make -C tutorials/http/device-dashboard/${{ matrix.example.path }} build
+
+
+  device_dashboard_examples_arm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: none
+            cflags: ""
+            examples: |
+              http/device-dashboard/microchip/same54-xpro
+              nxp/rt1020-evk-make-freertos-builtin
+              nxp/rt1060-evk-make-freertos-builtin
+              nxp/rt1170-evk-make-freertos-builtin
+              renesas/ek-ra6m4-make-baremetal-builtin
+          - group: builtin
+            cflags: -DMG_TLS=MG_TLS_BUILTIN
+            examples: |
+              http/device-dashboard/microchip/same54-xpro
+              nxp/rt1020-evk-make-freertos-builtin
+              nxp/rt1060-evk-make-freertos-builtin
+              nxp/rt1170-evk-make-freertos-builtin
+              renesas/ek-ra6m4-make-baremetal-builtin
+    name: device dashboard ARM ${{ matrix.group }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: sudo apt -y update && sudo apt -y install gcc-arm-none-eabi
+      - run: |
+          failed=0
+          sep=
+          examples='${{ matrix.examples }}'
+          for x in $examples; do
+            echo "========== $x =========="
+            if make -C "tutorials/$x" build CFLAGS_EXTRA="${{ matrix.cflags }}"; then
+              ok=true
+              echo "SUCCESS: $x"
+            else
+              ok=false
+              failed=1
+              echo "FAILURE: $x"
+            fi
+            printf 'HEALTH_DASHBOARD\t%s"%s": %s\n' "$sep" "$x" "$ok"
+            sep=,
+          done
+          exit $failed
+
+#  mqtt_dashboard_examples:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        example:
+#          - path:
+#    name: ${{ matrix.example.path }}
+#    steps:
+#      - uses: actions/checkout@v5
+#        with: { fetch-depth: 2 }
+#      - run: echo # nothing specific to install or do
+#      - run: make -C tutorials/${{ matrix.example.path }} build
+
+
+#  dual_examples:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        example:
+#          - path:
+#    name: ${{ matrix.example.path }}
+#    steps:
+#      - uses: actions/checkout@v5
+#        with: { fetch-depth: 2 }
+#      - run: echo # nothing specific to install or do
+#      - run: make -C tutorials/${{ matrix.example.path }} device_dashboard
+#      - run: make -C tutorials/${{ matrix.example.path }} mqtt_dashboard
+
+  cube_examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - run: sudo pip install yq
+      - run: cd test/cube && make
+
+#  xpresso_examples:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v5
+#        with: { fetch-depth: 2 }
+#      - run: sudo pip install yq
+#      - run: cd test/xpresso && make

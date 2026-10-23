@@ -1,4 +1,5 @@
 #include <flint.h>
+#include <string.h>
 
 bool is_platform_element(char *entry, char **out_flag) {
 	char *colon = strchr(entry, ':');

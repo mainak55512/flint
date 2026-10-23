@@ -1,0 +1,33 @@
+name: "CodeQL Scanning"
+# https://github.com/github/codeql-action
+
+on:
+  #schedule:
+  #  - cron: '30 23 * * *' # run at 11:30 PM UTC
+  # Allow manual runs
+  workflow_dispatch:
+
+env:
+  IPV6: 0
+jobs:
+  CodeQL-Build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    permissions:
+      security-events: write
+    steps:
+    - uses: actions/checkout@v5
+      with: { fetch-depth: 2 }
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: c
+        build-mode: none
+    - run: | # This should just build code, not run it... ?
+        make -C test test SSL=BUILTIN CC=gcc IPV6=0 ASAN= ASAN_OPTIONS=
+        # make -C test mip_tap_test SSL=BUILTIN CC=gcc IPV6=0 ASAN= ASAN_OPTIONS=
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4

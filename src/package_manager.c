@@ -36,18 +36,18 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 		}
 	}
 
-	// #if defined(_WIN32)
-	// 	const char *sink_path = ">NUL 2>&1";
-	// #else
-	// 	const char *sink_path = ">/dev/null 2>&1";
-	// #endif
+#if defined(_WIN32)
+	const char *sink_path = ">NUL 2>&1";
+#else
+	const char *sink_path = ">/dev/null 2>&1";
+#endif
 
 	char *command = string(string_concat_cstr(
-		arena, 20, "git -C \"", target_dir, "\" init ", NULL_DEVICE,
+		arena, 20, "git -C \"", target_dir, "\" init ", sink_path,
 		" && git -C \"", target_dir, "\" remote add origin \"", libURL, "\" ",
-		NULL_DEVICE, " && git -C \"", target_dir,
-		"\" fetch --depth 1 --tags origin ", ref_hash, " ", NULL_DEVICE,
-		" && git -C \"", target_dir, "\" checkout FETCH_HEAD ", NULL_DEVICE));
+		sink_path, " && git -C \"", target_dir,
+		"\" fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
+		" && git -C \"", target_dir, "\" checkout FETCH_HEAD ", sink_path));
 
 	if (system(command) != 0) {
 		if (directory_exists(target_dir)) {
@@ -89,11 +89,11 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	char *target_dir =
 		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
 
-	// #if defined(_WIN32)
-	// 	const char *sink_path = ">NUL 2>&1";
-	// #else
-	// 	const char *sink_path = ">/dev/null 2>&1";
-	// #endif
+#if defined(_WIN32)
+	const char *sink_path = ">NUL 2>&1";
+#else
+	const char *sink_path = ">/dev/null 2>&1";
+#endif
 
 	printf("[+] Installing %s...\n", repo_name);
 	String *command;
@@ -107,12 +107,12 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 		if (STR_CMP(version_number, "unknown") == 0) {
 			command = string_concat_cstr(
 				arena, 7, "git clone --depth 1 --quiet \"", url, "\" \"",
-				target_dir, "\" ", NULL_DEVICE, "");
+				target_dir, "\" ", sink_path, "");
 		} else {
 			command = string_concat_cstr(
 				arena, 8, "git clone --depth 1 --quiet --branch \"",
 				version_number, "\" \"", url, "\" \"", target_dir, "\" ",
-				NULL_DEVICE);
+				sink_path);
 		}
 	} else {
 		return clone_lib_hashed(arena, url, hash);
@@ -313,16 +313,59 @@ void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 	}
 }
 
+void sync_remote_composition(Config *conf, Cmap *lock, char *fragment) {
+	char *colon = strchr(fragment, ':');
+	if (!colon)
+		return;
+	char *repo_name = colon + 1;
+	// Cmap *lock = read_lock_file();
+	Sync_config *remote_composition =
+		get_remote_composition(conf->arena, repo_name);
+	if (remote_composition == NULL) {
+		printf("Unable to fetch remote composition\n");
+		return;
+	}
+	if (!lock_contains(lock, string(remote_composition->remote))) {
+		char *modified_url = string(string_concat_cstr(
+			conf->arena, 3, string(remote_composition->remote), "@",
+			string(remote_composition->version)));
+		char *hash = "";
+		if (remote_composition->hash) {
+			hash = string(remote_composition->hash);
+		}
+
+		// printf("Modified URL: %s\n", modified_url);
+		fetch_library(conf, modified_url, hash, lock, true);
+
+		sync_flags(conf, remote_composition->flags);
+		sync_lib_links(conf, remote_composition->lib_links);
+		sync_excludes(conf, remote_composition->excludes, repo_name);
+		sync_exclude_dirs(conf, remote_composition->exclude_dirs, repo_name);
+		sync_exclude_exception(conf, remote_composition->exclude_exception,
+							   repo_name);
+		sync_tmpl(conf, remote_composition->tmpl);
+	} else {
+		printf("[*] Library '%s' already installed, hence skipping...\n",
+			   repo_name);
+	}
+	// write_lock_file(lock);
+	sync_config_free(remote_composition);
+}
+
 void add_lib(char *libURL) {
 	Config *conf = config_init();
+	Cmap *lock = read_lock_file();
 	read_flint_composition("composition.json", conf);
 
-	Cmap *lock = read_lock_file();
-
-	if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
-		fetch_library(conf, libURL, "", lock, false);
+	if (strncmp(libURL, "cherts:", 7) == 0) {
+		sync_remote_composition(conf, lock, libURL);
 	} else {
-		printf("[*] Dependency already available, installation skipped...\n");
+		if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
+			fetch_library(conf, libURL, "", lock, false);
+		} else {
+			printf(
+				"[*] Dependency already available, installation skipped...\n");
+		}
 	}
 
 	write_flint_composition("composition.json", conf);

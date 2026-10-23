@@ -22,6 +22,32 @@ Config *config_init() {
 	return conf;
 }
 
+Sync_config *read_sync_config(Arena *arena, yyjson_val *val) {
+	Sync_config *sync_config = arena_alloc(arena, sizeof(Sync_config));
+	sync_config->version = safe_get_string(arena, val, "version");
+	sync_config->remote = safe_get_string(arena, val, "remote");
+	sync_config->hash = safe_get_string(arena, val, "hash");
+
+	size_t idx_sync, max_sync;
+	yyjson_val *key_sync, *val_sync;
+
+	sync_config->flags = parse_string_array(arena, val, "flags");
+	sync_config->lib_links = parse_string_array(arena, val, "lib_links");
+	sync_config->excludes = parse_string_array(arena, val, "excludes");
+	sync_config->exclude_dirs = parse_string_array(arena, val, "exclude_dirs");
+	sync_config->exclude_exception =
+		parse_string_array(arena, val, "exclude_exception");
+	yyjson_val *tmpl = yyjson_obj_get(val, "tmpl");
+	if (tmpl) {
+		sync_config->tmpl = map_init();
+		yyjson_obj_foreach(tmpl, idx_sync, max_sync, key_sync, val_sync) {
+			map_add(sync_config->tmpl, yyjson_get_str(key_sync),
+					string_from(arena, (char *)yyjson_get_str(val_sync)));
+		}
+	}
+	return sync_config;
+}
+
 void sync_config_free(Sync_config *conf) {
 	if (conf->flags != NULL) {
 		vector_free(&conf->flags);
@@ -80,7 +106,6 @@ void config_free(Config *conf) {
 }
 
 void read_flint_composition(char *composition_path, Config *conf) {
-
 	yyjson_doc *doc = yyjson_read_file(composition_path, 0, NULL, NULL);
 	if (!doc) {
 		fprintf(stderr, "Failed to read or parse JSON file.\n");
@@ -131,34 +156,36 @@ void read_flint_composition(char *composition_path, Config *conf) {
 	conf->sync = map_init();
 	if (yyjson_is_obj(sync)) {
 		yyjson_obj_foreach(sync, idx, max, key, val) {
-			Sync_config *sync_config =
-				arena_alloc(conf->arena, sizeof(Sync_config));
-			sync_config->version = safe_get_string(conf->arena, val, "version");
-			sync_config->remote = safe_get_string(conf->arena, val, "remote");
-			sync_config->hash = safe_get_string(conf->arena, val, "hash");
+			// Sync_config *sync_config =
+			// 	arena_alloc(conf->arena, sizeof(Sync_config));
+			// sync_config->version = safe_get_string(conf->arena, val,
+			// "version"); sync_config->remote = safe_get_string(conf->arena,
+			// val, "remote"); sync_config->hash = safe_get_string(conf->arena,
+			// val, "hash");
 
-			size_t idx_sync, max_sync;
-			yyjson_val *key_sync, *val_sync;
+			// size_t idx_sync, max_sync;
+			// yyjson_val *key_sync, *val_sync;
 
-			sync_config->flags = parse_string_array(conf->arena, val, "flags");
-			sync_config->lib_links =
-				parse_string_array(conf->arena, val, "lib_links");
-			sync_config->excludes =
-				parse_string_array(conf->arena, val, "excludes");
-			sync_config->exclude_dirs =
-				parse_string_array(conf->arena, val, "exclude_dirs");
-			sync_config->exclude_exception =
-				parse_string_array(conf->arena, val, "exclude_exception");
-			yyjson_val *tmpl = yyjson_obj_get(val, "tmpl");
-			if (tmpl) {
-				sync_config->tmpl = map_init();
-				yyjson_obj_foreach(tmpl, idx_sync, max_sync, key_sync,
-								   val_sync) {
-					map_add(sync_config->tmpl, yyjson_get_str(key_sync),
-							string_from(conf->arena,
-										(char *)yyjson_get_str(val_sync)));
-				}
-			}
+			// sync_config->flags = parse_string_array(conf->arena, val,
+			// "flags"); sync_config->lib_links =
+			// 	parse_string_array(conf->arena, val, "lib_links");
+			// sync_config->excludes =
+			// 	parse_string_array(conf->arena, val, "excludes");
+			// sync_config->exclude_dirs =
+			// 	parse_string_array(conf->arena, val, "exclude_dirs");
+			// sync_config->exclude_exception =
+			// 	parse_string_array(conf->arena, val, "exclude_exception");
+			// yyjson_val *tmpl = yyjson_obj_get(val, "tmpl");
+			// if (tmpl) {
+			// 	sync_config->tmpl = map_init();
+			// 	yyjson_obj_foreach(tmpl, idx_sync, max_sync, key_sync,
+			// 					   val_sync) {
+			// 		map_add(sync_config->tmpl, yyjson_get_str(key_sync),
+			// 				string_from(conf->arena,
+			// 							(char *)yyjson_get_str(val_sync)));
+			// 	}
+			// }
+			Sync_config *sync_config = read_sync_config(conf->arena, val);
 			map_add(conf->sync, yyjson_get_str(key), sync_config);
 		}
 	}
