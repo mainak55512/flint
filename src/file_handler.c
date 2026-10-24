@@ -36,7 +36,7 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 		ext_3 = string_from(str_arena, ".h.in");
 	}
 
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_WIN32)
 	WIN32_FIND_DATAA find_data;
 	String *search_pattern =
 		string_concat_cstr(str_arena, 2, string(path), "/*");
@@ -103,7 +103,7 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 				src_files = string_concat_cstr(str_arena, 4, string(src_files),
 											   string(path), "/", matched_name);
 			}
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_WIN32)
 		} while (FindNextFileA(hFind, &find_data) != 0);
 		FindClose(hFind);
 	}
@@ -632,7 +632,7 @@ void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
 		return;
 	}
 
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_WIN32)
 	WIN32_FIND_DATAA find_data;
 	String *search_pattern =
 		string_concat_cstr(arena, 2, string(dir_path), "/*");

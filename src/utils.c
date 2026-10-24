@@ -268,10 +268,10 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 		return "";
 	}
 
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_WIN32)
 	int exit_code = status;
-#elif defined(_WIN32)
-	int exit_code = status;
+// #elif defined(_WIN32)
+// 	int exit_code = status;
 #else
 	int exit_code = WEXITSTATUS(status);
 #endif
