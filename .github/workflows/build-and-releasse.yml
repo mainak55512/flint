@@ -94,12 +94,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # 1. Compile version.rc into a COFF object file (version.res)
+          windres.exe version.rc -O coff -o version.res
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # 2. Compile and link Flint with version.res
+          # Note: Using -O2 and omitting -fno-stack-protector / -static to prevent Defender ML false positives
           $argsList = @(
             "-std=gnu11",
-            "-O3",
+            "-O2",
             "-DNDEBUG",
             "-Wno-unused-result",
-            "-fno-stack-protector",
             "-D_CRT_SECURE_NO_WARNINGS",
             "-DMG_TLS=MG_TLS_BUILTIN",
             "-DMG_ENABLE_LOG=0",
@@ -125,15 +130,39 @@ jobs:
             "./src/package_manager.c",
             "./src/utils.c",
             "./src/project_handler.c",
+            "version.res",
             "-lws2_32",
             "-ladvapi32",
             "-lcrypt32",
-            "-static",
             "-o",
             "${{ matrix.bin_name }}"
           )
           & ${{ matrix.compiler }} $argsList
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Sign Windows Binary (If Certificate Secrets Exist)
+        if: runner.os == 'Windows' && env.PFX_BASE64 != ''
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:PFX_BASE64))
+          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+          & $signtool.FullName sign /f cert.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "${{ matrix.bin_name }}"
+          Remove-Item cert.pfx
+
+      - name: Verify with Windows Defender & Package Archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Scanning ${{ matrix.bin_name }} with Windows Defender..."
+          & "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -Scan -ScanType 3 -File "${{ github.workspace }}\${{ matrix.bin_name }}"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Windows Defender flagged the binary! Check the log output above."
+          } else {
+            Write-Host "Windows Defender scan passed with 0 threats detected."
+          }
 
           Compress-Archive -Path "${{ matrix.bin_name }}" -DestinationPath "${{ matrix.archive_name }}"
 
