@@ -2,7 +2,7 @@
 
 set -e
 
-VERSION="v0.5.20"
+VERSION="v0.5.25"
 
 HAS_GCC=0
 HAS_CLANG=0
@@ -29,24 +29,30 @@ fi
 echo "* Compiling Flint (Release) using $COMPILER..."
 
 $COMPILER \
+  -std=gnu11 \
   -O3 \
   -DNDEBUG \
-  -fno-stack-protector\
+  -fno-stack-protector \
   -Wno-unused-result \
-  -DPROJECT_VERSION="$VERSION"\
+  -DMG_TLS=MG_TLS_BUILTIN \
+  -DMG_ENABLE_LOG=0 \
+  -DPROJECT_VERSION="$VERSION" \
   -I./include \
   -I./deps/arena/include \
   -I./deps/CString/include \
   -I./deps/container/include \
   -I./deps/Cmap/include \
   -I./deps/yyjson/src \
+  -I./deps/mongoose \
   ./deps/arena/lib/arena.c \
   ./deps/CString/lib/cstring.c \
   ./deps/container/lib/cvector.c \
   ./deps/Cmap/lib/cmap.c \
   ./deps/yyjson/src/yyjson.c \
+  ./deps/mongoose/mongoose.c \
   ./src/main.c \
   ./src/cli.c \
+  ./src/fetch.c \
   ./src/config_handler.c \
   ./src/file_handler.c \
   ./src/package_manager.c \

@@ -2,15 +2,13 @@
     "project_name": "flint",
     "project_language": "c",
     "compiler_path": "clang",
-    "version": "v0.5.24",
+    "version": "v0.5.25",
     "executable": true,
     "flags": [
         "-std=gnu11",
         "-O3",
         "-Wno-unused-command-line-argument",
-        "-s",
         "-fno-stack-protector",
-        "-Wall",
         "-DMG_TLS=MG_TLS_BUILTIN",
         "-DMG_ENABLE_LOG=0"
     ],
