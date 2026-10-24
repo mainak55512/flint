@@ -363,8 +363,8 @@ void add_lib(char *libURL) {
 		if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
 			fetch_library(conf, libURL, "", lock, false);
 		} else {
-			printf(
-				"[*] Dependency already available, installation skipped...\n");
+			printf("[*] Dependency already available or malformed URL, "
+				   "installation skipped...\n");
 		}
 	}
 

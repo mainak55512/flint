@@ -354,6 +354,9 @@ Cmap *read_lock_file() {
 }
 
 bool lock_contains(Cmap *lock, char *libURL) {
+	if (!libURL) {
+		return true;
+	}
 	if (map_len(lock)) {
 		char *repo_name = get_repo_name(lock->arena, libURL);
 		Dependency *lock_entry = map_get(lock, repo_name);
