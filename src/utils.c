@@ -1,34 +1,64 @@
 #include <flint.h>
+#include <string.h>
 
-String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
-	if (length(v) == 0)
-		return string_from(arena, "");
-	if (length(v) == 1)
-		return string_clone(arena, at(String *, v, 0));
-	String *output;
-	if (length(v) >= 2) {
-		output = at(String *, v, 0);
-		for (int i = 1; i < length(v); i++) {
-			output = string_concat(arena, 3, output, sep, at(String *, v, i));
-		}
+bool is_platform_element(char *entry, char **out_flag) {
+	char *colon = strchr(entry, ':');
+
+	if (colon == NULL) {
+		*out_flag = entry;
+		return true;
 	}
-	return output;
+
+	// if (colon == NULL || entry[0] == '-') {
+	// 	*out_flag = entry;
+	// 	return true;
+	// }
+
+	size_t os_len = (size_t)(colon - entry);
+
+	if (entry[0] == '-' || os_len <= 1) {
+		*out_flag = entry;
+		return true;
+	}
+
+	bool match = (strlen(CURRENT_OS) == os_len &&
+				  strncmp(entry, CURRENT_OS, os_len) == 0) ||
+				 (IS_UNIX && os_len == 4 && strncmp(entry, "unix", 4) == 0);
+
+	if (match) {
+		*out_flag = colon + 1;
+		return true;
+	}
+
+	return false;
 }
 
-// const char *get_filename_without_path(const char *path) {
-// 	const char *last_slash = strrchr(path, '/');
-// 	const char *last_backslash = strrchr(path, '\\');
+String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
+	String *output = NULL;
 
-// 	const char *filename = path;
-// 	if (last_slash && last_slash > filename) {
-// 		filename = last_slash + 1;
-// 	}
-// 	if (last_backslash && last_backslash > filename) {
-// 		filename = last_backslash + 1;
-// 	}
+	for (int i = 0; i < length(v); i++) {
+		String *item = at(String *, v, i);
+		char *raw_flag = NULL;
 
-// 	return filename;
-// }
+		if (!is_platform_element(string(item), &raw_flag)) {
+			continue;
+		}
+
+		String *flag_str = string_from(arena, raw_flag);
+
+		if (output == NULL) {
+			output = flag_str;
+		} else {
+			output = string_concat(arena, 3, output, sep, flag_str);
+		}
+	}
+
+	if (output == NULL) {
+		return string_from(arena, "");
+	}
+
+	return output;
+}
 
 const char *get_filename_without_path(const char *path) {
 	if (!path)
@@ -78,12 +108,30 @@ Vector *remove_excludes(Vector *collected, Vector *excludes) {
 
 	Vector *vec = vector_init(String *);
 	for (int i = 0; i < length(collected); i++) {
+		char *item_str = string(at(String *, collected, i));
 		bool present = false;
 		for (int j = 0; j < length(excludes); j++) {
-			if (STR_CMP(string(at(String *, collected, i)),
-						string(at(String *, excludes, j))) == 0) {
-				present = true;
-				break;
+			char *raw_entry = string(at(String *, excludes, j));
+			char *excluded = NULL;
+			if (!is_platform_element(raw_entry, &excluded)) {
+				continue;
+			}
+
+			size_t ex_len = strlen(excluded);
+
+			if (ex_len == 0) {
+				continue;
+			}
+
+			if (strncmp(item_str, excluded, ex_len) == 0) {
+				if (item_str[ex_len] == '\0' || item_str[ex_len] == '/'
+#if defined(_WIN32)
+					|| item_str[ex_len] == '\\'
+#endif
+				) {
+					present = true;
+					break;
+				}
 			}
 		}
 
@@ -113,7 +161,6 @@ String *get_current_working_dir(Arena *arena) {
 	return string_from(arena, cwd);
 }
 
-/*
 char *get_repo_name(Arena *arena, const char *git_url) {
 	if (!git_url)
 		return NULL;
@@ -142,61 +189,6 @@ char *get_repo_name(Arena *arena, const char *git_url) {
 
 	return repo_name;
 }
-*/
-
-char *get_repo_name(Arena *arena, const char *git_url) {
-	if (!git_url)
-		return NULL;
-
-	const char *last_slash = strrchr(git_url, '/');
-	if (!last_slash)
-		return NULL;
-
-	const char *repo_start = last_slash + 1;
-
-	const char *git_suffix = strstr(repo_start, ".git");
-
-	size_t len;
-	if (git_suffix) {
-		len = git_suffix - repo_start;
-	} else {
-		len = strlen(repo_start);
-	}
-
-	char *repo_name = (char *)arena_alloc(arena, len + 1);
-	if (!repo_name)
-		return NULL;
-
-	strncpy(repo_name, repo_start, len);
-	repo_name[len] = '\0';
-
-	return repo_name;
-}
-
-// char *get_version_number(Arena *arena, const char *git_url) {
-// 	if (!git_url) {
-// 		return NULL;
-// 	}
-
-// 	const char *at_symbol = strrchr(git_url, '@');
-// 	if (!at_symbol || *(at_symbol + 1) == '\0') {
-// 		return NULL;
-// 	}
-
-// 	const char *repo_start = at_symbol + 1;
-
-// 	size_t len = strlen(repo_start);
-
-// 	char *version_number = (char *)arena_alloc(arena, len + 1);
-// 	if (!version_number) {
-// 		return NULL;
-// 	}
-
-// 	strncpy(version_number, repo_start, len);
-// 	version_number[len] = '\0';
-
-// 	return version_number;
-// }
 
 char *get_version_number(Arena *arena, const char *git_url) {
 	if (!git_url) {
@@ -246,37 +238,6 @@ char *get_modified_url(Arena *arena, const char *git_url) {
 	return url;
 }
 
-// char *get_lib_hash(Arena *arena, char *target_dir) {
-// 	char *hash = (char *)arena_alloc(arena, 41 * sizeof(char));
-// 	char buffer[128];
-
-// 	FILE *fp = popen(string(string_concat_cstr(arena, 3, "git -C ", target_dir,
-// 											   " rev-parse HEAD")),
-// 					 "r");
-// 	if (fp == NULL) {
-// 		perror("Failed to run git command");
-// 		return "";
-// 	}
-
-// 	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-// 		buffer[strcspn(buffer, "\r\n")] = '\0';
-// 		strncpy(hash, buffer, 40);
-// 	}
-
-// 	int status = pclose(fp);
-
-// 	if (status == -1) {
-// 		perror("pclose failed");
-// 		return "";
-// 	} else if (WEXITSTATUS(status) != 0) {
-// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-// 				WEXITSTATUS(status));
-// 		return "";
-// 	}
-
-// 	return hash;
-// }
-
 char *get_lib_hash(Arena *arena, char *target_dir) {
 	char *hash = (char *)arena_alloc(arena, 41 * sizeof(char));
 	if (!hash)
@@ -307,20 +268,6 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 		return "";
 	}
 
-	// #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-	// 	if (status != 0) {
-	// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-	// 				status);
-	// 		return "";
-	// 	}
-	// #else
-	// 	if (WEXITSTATUS(status) != 0) {
-	// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-	// 				WEXITSTATUS(status));
-	// 		return "";
-	// 	}
-	// #endif
-
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 	int exit_code = status;
 #elif defined(_WIN32)
@@ -338,58 +285,6 @@ char *get_lib_hash(Arena *arena, char *target_dir) {
 	return hash;
 }
 
-// char *get_lib_hash(Arena *arena, char *target_dir) {
-// 	char *hash = (char *)arena_alloc(arena, 41 * sizeof(char));
-// 	if (!hash)
-// 		return "";
-
-// 	char buffer[128];
-
-// 	String *cmd =
-// 		string_concat_cstr(arena, 3, "git -C ", target_dir, " rev-parse HEAD");
-// 	FILE *fp = popen(string(cmd), "r");
-// 	if (fp == NULL) {
-// 		perror("Failed to run git command");
-// 		return "";
-// 	}
-
-// 	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-// 		buffer[strcspn(buffer, "\r\n")] = '\0';
-
-// 		int i = 0;
-// 		while (buffer[i] != '\0' && i < 40) {
-// 			hash[i] = buffer[i];
-// 			i++;
-// 		}
-// 		hash[i] = '\0';
-// 	} else {
-// 		hash[0] = '\0';
-// 	}
-
-// 	int status = pclose(fp);
-
-// 	if (status == -1) {
-// 		perror("pclose failed");
-// 		return "";
-// 	}
-
-// #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-// 	int exit_code = status;
-// #elif defined(_WIN32)
-// 	int exit_code = status;
-// #else
-// 	int exit_code = WEXITSTATUS(status);
-// #endif
-
-// 	if (exit_code != 0) {
-// 		fprintf(stderr, "Git error: Exit code %d (Not a git repository?)\n",
-// 				exit_code);
-// 		return "";
-// 	}
-
-// 	return hash;
-// }
-
 char *arena_strdup(Arena *arena, const char *str) {
 	if (!str)
 		return NULL;
@@ -402,38 +297,13 @@ char *arena_strdup(Arena *arena, const char *str) {
 	return copy;
 }
 
-// char *get_tag_from_hash(Arena *arena, const char *target_dir,
-// 						const char *ref_hash) {
-// 	char buffer[128];
-// 	char *sink_path = "2>/dev/null";
-// 	char *cmd = string(string_concat_cstr(arena, 6, "git -C ", target_dir,
-// 										  " describe --tags --exact-match ",
-// 										  ref_hash, " ", sink_path));
-// 	FILE *fp = popen(cmd, "r");
-// 	if (fp == NULL) {
-// 		perror("Failed to run git command");
-// 		return arena_strdup(arena, "unknown");
-// 	}
-
-// 	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-// 		buffer[strcspn(buffer, "\r\n")] = '\0';
-
-// 		char *git_tag = arena_strdup(arena, buffer);
-// 		pclose(fp);
-// 		return git_tag;
-// 	}
-
-// 	pclose(fp);
-// 	return arena_strdup(arena, "unknown");
-// }
-
 char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash) {
 	char buffer[128];
 
 	String *cmd_str =
-		string_concat_cstr(arena, 5, "git -C ", target_dir,
-						   " describe --tags --exact-match ", ref_hash, " ");
+		string_concat_cstr(arena, 5, "git -C \"", target_dir,
+						   "\" describe --tags --exact-match ", ref_hash, " ");
 	cmd_str = string_concat_cstr(arena, 2, string(cmd_str), NULL_DEVICE);
 
 	FILE *fp = popen(string(cmd_str), "r");
@@ -469,44 +339,23 @@ void set_add(Vector *v, char *elem) {
 	}
 }
 
-/*
-bool set_remove(Vector **v, char *elem) {
-	if (!v || !*v)
-		return false;
+// bool check_if_dep_path(const char *str) {
+// 	size_t len_prefix = strlen("deps");
+// 	size_t len_str = strlen(str);
 
-	if (!set_contains(*v, elem)) {
-		return false;
-	}
+// 	if (len_str < len_prefix) {
+// 		return false;
+// 	}
 
-	Vector *old_v = *v;
-	Vector *new_v = vector_init(char *);
-
-	int len = length(old_v);
-	for (int i = 0; i < len; i++) {
-		char *item = at(char *, old_v, i);
-		if (STR_CMP(item, elem) != 0) {
-			append(char *, new_v, item);
-		}
-	}
-
-	*v = new_v;
-	vector_free(old_v);
-	return true;
-}
-	*/
-
-bool check_if_dep_path(const char *str) {
-	size_t len_prefix = strlen("deps");
-	size_t len_str = strlen(str);
-
-	if (len_str < len_prefix) {
-		return false;
-	}
-
-	return strncmp(str, "deps", len_prefix) == 0;
-}
+// 	return strncmp(str, "deps", len_prefix) == 0;
+// }
 
 bool starts_with(char *str, char *prefix) {
+	char *colon = strchr(str, ':');
+	if (colon) {
+		char *path = colon + 1;
+		return strncmp(path, prefix, strlen(prefix)) == 0;
+	}
 	return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 

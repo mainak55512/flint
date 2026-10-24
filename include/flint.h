@@ -7,11 +7,27 @@
 #include <cstring.h>
 #include <ctype.h>
 #include <errno.h>
+#include <mongoose.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <yyjson.h>
+
+#if defined(_WIN32)
+#define CURRENT_OS "windows"
+#define IS_UNIX 0
+#elif defined(__APPLE__)
+#define CURRENT_OS "macos"
+#define IS_UNIX 1
+#elif defined(__linux__)
+#define CURRENT_OS "linux"
+#define IS_UNIX 1
+#else
+#define CURRENT_OS "unknown"
+#define IS_UNIX 0
+#endif
 
 #ifdef _WIN32
 // #define _CRT_SECURE_NO_WARNINGS
@@ -33,12 +49,11 @@
 #define STR_CMP _stricmp
 #define GET_WD _getcwd
 
+#define NULL_DEVICE "2>NUL"
+
 #if !defined(__MINGW32__) && !defined(__MINGW64__)
 #define popen _popen
 #define pclose _pclose
-#define NULL_DEVICE "2>NUL"
-#else
-#define NULL_DEVICE "2>/dev/null"
 #endif
 
 #else
@@ -111,6 +126,8 @@ bool set_contains_str(Vector *v, String *elem);
 void set_add_str(Vector *v, String *elem);
 char *safe_str(String *s);
 Config *config_init();
+Sync_config *read_sync_config(Arena *arena, yyjson_val *val);
+void sync_config_free(Sync_config *conf);
 void config_free(Config *conf);
 void read_flint_composition(char *composition_path, Config *conf);
 void write_flint_composition(char *composition_path, Config *conf);
@@ -143,7 +160,7 @@ void add_lib(char *libURL);
 void remove_library_partial(char *libURL);
 void remove_library(char *repo_name);
 void run_project(Arena *global_str_arena);
-void sync_lib();
+void sync_lib(char *elem);
 const char *get_filename_without_path(const char *path);
 int cli(int argc, char *argv[], Arena *global_str_arena);
 long long get_file_modified_time(const char *path);
@@ -154,7 +171,7 @@ int copy_file(const char *src_path, const char *dest_path);
 bool file_exists(const char *file_name);
 void add_local_lib(int lib_count, char **lib_link);
 void add_flag(int lib_count, char **lib_link);
-bool check_if_dep_path(const char *str);
+// bool check_if_dep_path(const char *str);
 int remove_directory(Arena *arena, const char *path);
 char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);
@@ -180,5 +197,7 @@ void clear_cache();
 void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
 				   bool sync);
 String *join_vec_to_str(Arena *arena, Vector *v, String *sep);
+bool is_platform_element(char *entry, char **out_flag);
+Sync_config *get_remote_composition(Arena *arena, char *fragment);
 
 #endif // FLINT_H

@@ -9,7 +9,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSNativeCommandUseErrorActionPreference =$false
 }
 
-$VERSION = "v0.5.20"
+$VERSION = "v0.5.25"
 
 # 1. Compiler Detection
 $compiler =$null
@@ -31,11 +31,14 @@ Write-Host "* Compiling Flint (Release) using $compiler..." -ForegroundColor Yel
 
 # 2. Compilation Arguments, Include Paths & Source Files
 $argsList = @(
+    "-std=gnu11",
     "-O3",
     "-DNDEBUG",
     "-Wno-unused-result",
     "-fno-stack-protector",
     "-D_CRT_SECURE_NO_WARNINGS",
+    "-DMG_TLS=MG_TLS_BUILTIN",
+    "-DMG_ENABLE_LOG=0",
     "-DPROJECT_VERSION=`"$VERSION`"",
     "-I./include",
     "-I./deps/arena/include",
@@ -43,18 +46,25 @@ $argsList = @(
     "-I./deps/container/include",
     "-I./deps/Cmap/include",
     "-I./deps/yyjson/src",
+    "-I./deps/mongoose",
     "./deps/arena/lib/arena.c",
     "./deps/CString/lib/cstring.c",
     "./deps/container/lib/cvector.c",
     "./deps/Cmap/lib/cmap.c",
     "./deps/yyjson/src/yyjson.c",
+    "./deps/mongoose/mongoose.c",
     "./src/main.c",
     "./src/cli.c",
+    "./src/fetch.c",
     "./src/config_handler.c",
     "./src/file_handler.c",
     "./src/package_manager.c",
     "./src/utils.c",
     "./src/project_handler.c",
+    "-lws2_32",
+    "-ladvapi32",
+    "-lcrypt32",
+    "-static",
     "-o",
     "flint.exe"
 )

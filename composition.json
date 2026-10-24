@@ -2,52 +2,65 @@
     "project_name": "flint",
     "project_language": "c",
     "compiler_path": "clang",
-    "version": "v0.5.20",
+    "version": "v0.5.25",
     "executable": true,
     "flags": [
         "-std=gnu11",
         "-O3",
         "-Wno-unused-command-line-argument",
-        "-s",
         "-fno-stack-protector",
-        "-Wall"
+        "-DMG_TLS=MG_TLS_BUILTIN",
+        "-DMG_ENABLE_LOG=0"
     ],
-    "lib_links": [],
+    "lib_links": [
+        "windows:-lws2_32",
+        "windows:-ladvapi32",
+        "windows:-lcrypt32"
+    ],
     "excludes": [],
     "exclude_dirs": [
         "build",
         "deps/yyjson/fuzz",
         "deps/yyjson/misc",
         "deps/yyjson/test",
-        "deps/container/build"
+        "deps/container/build",
+        "deps/mongoose/resources",
+        "deps/mongoose/src",
+        "deps/mongoose/test",
+        "deps/mongoose/tutorials"
     ],
     "exclude_exception": [],
     "tmpl": {},
     "dependencies": {
+        "CString": {
+            "version": "v0.1.1",
+            "remote": "https://github.com/mainak55512/CString",
+            "hash": "a58d598a907596bac876dbbaa7482d0d2a7e91cc"
+        },
         "container": {
             "version": "v0.1.2",
             "remote": "https://github.com/mainak55512/container",
             "hash": "a2583f9eeeadb6f3cfa2284ea1d31ef82ae62622"
         },
-        "CString": {
-            "version": "v0.1.1",
-            "remote": "https://github.com/mainak55512/CString",
-            "hash": "a58d598a907596bac876dbbaa7482d0d2a7e91cc"
+        "mongoose": {
+            "version": "7.23",
+            "remote": "https://github.com/cesanta/mongoose.git",
+            "hash": "02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551"
         },
         "yyjson": {
             "version": "0.12.0",
             "remote": "https://github.com/ibireme/yyjson",
             "hash": "8b4a38dc994a110abaec8a400615567bd996105f"
         },
-        "Cmap": {
-            "version": "v0.1.2",
-            "remote": "https://github.com/mainak55512/Cmap",
-            "hash": "3267fb66bac3d3b536e7c50637e0ce3985e2b3d9"
-        },
         "arena": {
             "version": "v0.1.1",
             "remote": "https://github.com/mainak55512/arena",
             "hash": "b1659723d4d45a7eba5a8b12648a22f0212da17e"
+        },
+        "Cmap": {
+            "version": "v0.1.2",
+            "remote": "https://github.com/mainak55512/Cmap",
+            "hash": "3267fb66bac3d3b536e7c50637e0ce3985e2b3d9"
         }
     },
     "sync": {}
