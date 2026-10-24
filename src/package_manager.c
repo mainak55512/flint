@@ -195,14 +195,26 @@ void sync_exclude_dirs(Config *conf, Vector *exclude_dirs, char *repo_name) {
 
 			const char *path = colon + 1;
 
-			set_add_str(conf->exclude_dirs,
-						string_concat_cstr(conf->arena, 5, prefix, "deps/",
-										   repo_name, "/", path));
+			if (STR_CMP(path, "") == 0) {
+				set_add_str(conf->exclude_dirs,
+							string_concat_cstr(conf->arena, 3, prefix, "deps/",
+											   repo_name));
+			} else {
+				set_add_str(conf->exclude_dirs,
+							string_concat_cstr(conf->arena, 5, prefix, "deps/",
+											   repo_name, "/", path));
+			}
 
 		} else {
-			set_add_str(conf->exclude_dirs,
-						string_concat_cstr(conf->arena, 4, "deps/", repo_name,
-										   "/", raw_str));
+			if (STR_CMP(raw_str, "") == 0) {
+				set_add_str(
+					conf->exclude_dirs,
+					string_concat_cstr(conf->arena, 2, "deps/", repo_name));
+			} else {
+				set_add_str(conf->exclude_dirs,
+							string_concat_cstr(conf->arena, 4, "deps/",
+											   repo_name, "/", raw_str));
+			}
 		}
 	}
 }
