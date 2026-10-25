@@ -590,8 +590,10 @@ int generate_compile_commands(Config *conf) {
 
 	if (conf->exclude_exception) {
 		for (int i = 0; i < length(conf->exclude_exception); i++) {
-			set_add(src_paths, at(char *, conf->exclude_exception, i));
-			set_add(include_paths, at(char *, conf->exclude_exception, i));
+			set_add(src_paths,
+					string(at(String *, conf->exclude_exception, i)));
+			set_add(include_paths,
+					string(at(String *, conf->exclude_exception, i)));
 		}
 	}
 	Vector *source_files = vector_init(char *);
