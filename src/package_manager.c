@@ -63,10 +63,11 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	lib_details->hash = string_from(arena, (char *)ref_hash);
 	lib_details->remote = string_from(arena, libURL);
 
-	printf("[*] Library: %s\n", lib_details->repo_name);
-	printf("[*] Version: %s\n", string(lib_details->version));
-	printf("[*] Hash: %s\n", string(lib_details->hash));
-	printf("[✓] Done!\n\n");
+	// printf("[*] Library: %s\n", lib_details->repo_name);
+	// printf("[*] Version: %s\n", string(lib_details->version));
+	// printf("[*] Hash: %s\n", string(lib_details->hash));
+	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
+		   string(lib_details->version), string(lib_details->hash));
 	remove_directory(arena,
 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
 	return lib_details;
@@ -95,7 +96,7 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	const char *sink_path = ">/dev/null 2>&1";
 #endif
 
-	printf("[+] Installing %s...\n", repo_name);
+	// printf("[+] Installing %s...\n", repo_name);
 	String *command;
 
 	if (!hash || STR_CMP(hash, "") == 0) {
@@ -134,10 +135,12 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	lib_details->hash = string_from(arena, ref_hash);
 	lib_details->remote = string_from(arena, url);
 
-	printf("[*] Library: %s\n", lib_details->repo_name);
-	printf("[*] Version: %s\n", string(lib_details->version));
-	printf("[*] Hash: %s\n", string(lib_details->hash));
-	printf("[✓] Done!\n\n");
+	// printf("[*] Library: %s\n", lib_details->repo_name);
+	// printf("[*] Version: %s\n", string(lib_details->version));
+	// printf("[*] Hash: %s\n", string(lib_details->hash));
+	// printf("[✓] Done!\n\n");
+	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
+		   string(lib_details->version), string(lib_details->hash));
 
 	remove_directory(arena,
 					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));

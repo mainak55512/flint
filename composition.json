@@ -17,7 +17,7 @@
         "windows:-ladvapi32",
         "windows:-lcrypt32"
     ],
-    "excludes": [],
+    "excludes": ["src/generator.c"],
     "exclude_dirs": [
         "build",
         "deps/yyjson/fuzz",
