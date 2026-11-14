@@ -116,48 +116,48 @@ String *collect_files(Arena *str_arena, String *path, String *type) {
 	return src_files;
 }
 
-void get_files_vec(Config *conf, Vector *src_arr, Vector *source_files,
-				   String *cwd, String *file_type) {
-
+void get_files_vec(Config *conf, Vector(const char *) src_arr,
+				   Vector(char *) source_files, String *cwd,
+				   String *file_type) {
 	for (int i = 0; i < length(src_arr); i++) {
-		Vector *src_temp_arr;
-
-		src_temp_arr = remove_excludes(
+		Vector(String *) src_temp_arr = remove_excludes(
+			conf->arena,
 			string_split_lines(
 				conf->arena,
 				collect_files(conf->arena,
-							  string_from(conf->arena, at(char *, src_arr, i)),
-							  string_from(conf->arena, string(file_type)))),
+							  string_from(conf->arena, at(src_arr, i)),
+							  file_type)),
 			conf->excludes);
-		for (int i = 0; i < length(src_temp_arr); i++) {
-			char *elem = string(at(String *, src_temp_arr, i));
+
+		for (int j = 0; j < length(src_temp_arr); j++) {
+			char *elem = string(at(src_temp_arr, j));
 			if (STR_CMP(elem, "") != 0) {
-				append(char *, source_files, elem);
+				append(source_files, elem);
 			}
 		}
-		vector_free(&src_temp_arr);
 	}
 }
 
-void get_src_vec(Config *conf, Vector *src_arr, Vector *source_files,
-				 String *cwd) {
+void get_src_vec(Config *conf, Vector(const char *) src_arr,
+				 Vector(char *) source_files, String *cwd) {
 	get_files_vec(conf, src_arr, source_files, cwd,
 				  string_from(conf->arena, "src"));
 }
 
-void get_header_vec(Config *conf, Vector *src_arr, Vector *source_files,
-					String *cwd) {
+void get_header_vec(Config *conf, Vector(const char *) src_arr,
+					Vector(char *) source_files, String *cwd) {
 	get_files_vec(conf, src_arr, source_files, cwd,
 				  string_from(conf->arena, "header"));
 }
 
-void get_stat_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
-					  String *cwd) {
+void get_stat_lib_vec(Config *conf, Vector(const char *) src_arr,
+					  Vector(char *) source_files, String *cwd) {
 	get_files_vec(conf, src_arr, source_files, cwd,
 				  string_from(conf->arena, "static"));
 }
-void get_shared_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
-						String *cwd) {
+
+void get_shared_lib_vec(Config *conf, Vector(const char *) src_arr,
+						Vector(char *) source_files, String *cwd) {
 	get_files_vec(conf, src_arr, source_files, cwd,
 				  string_from(conf->arena, "dyn"));
 }
@@ -268,52 +268,6 @@ int remove_directory(Arena *arena, const char *path) {
 	int r = -1;
 
 #if defined(_WIN32)
-	// WIN32_FIND_DATAA find_data;
-	// size_t search_len = path_len + 3;
-	// char *search_path = arena_alloc(arena, search_len);
-	// if (!search_path)
-	// 	return -1;
-	// snprintf(search_path, search_len, "%s/*", path);
-
-	// HANDLE hFind = FindFirstFileA(search_path, &find_data);
-	// if (hFind != INVALID_HANDLE_VALUE) {
-	// 	r = 0;
-	// 	do {
-	// 		const char *d_name = find_data.cFileName;
-	// 		if (!strcmp(d_name, ".") || !strcmp(d_name, "..")) {
-	// 			continue;
-	// 		}
-
-	// 		int r2 = -1;
-	// 		size_t len = path_len + strlen(d_name) + 2;
-	// 		char *buf = arena_alloc(arena, len);
-
-	// 		if (buf) {
-	// 			snprintf(buf, len, "%s/%s", path, d_name);
-	// 			if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-	// 				r2 = remove_directory(arena, buf);
-	// 			} else {
-	// 				if (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-	// 					SetFileAttributesA(buf, find_data.dwFileAttributes &
-	// 												~FILE_ATTRIBUTE_READONLY);
-	// 				}
-	// 				r2 = _unlink(buf);
-	// 			}
-	// 		}
-	// 		r = r2;
-	// 	} while (!r && FindNextFileA(hFind, &find_data) != 0);
-	// 	FindClose(hFind);
-	// }
-
-	// if (!r) {
-	// 	DWORD attr = GetFileAttributesA(path);
-	// 	if (attr != INVALID_FILE_ATTRIBUTES &&
-	// 		(attr & FILE_ATTRIBUTE_READONLY)) {
-	// 		SetFileAttributesA(path, attr & ~FILE_ATTRIBUTE_READONLY);
-	// 	}
-	// 	r = _rmdir(path);
-	// }
-
 	int wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
 	if (wlen <= 0)
 		return -1;
@@ -592,14 +546,14 @@ int is_shared_lib_file(const char *filename) {
 	return has_extension(filename, ".so");
 }
 
-int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
+int is_path_excluded(Vector(String *) excludes_dirs, char *dir_path) {
 	if (!excludes_dirs) {
 		return 0;
 	}
 	const char *formatted_dir = format_path(dir_path);
 
 	for (int i = 0; i < length(excludes_dirs); i++) {
-		char *raw_entry = string(at(String *, excludes_dirs, i));
+		char *raw_entry = string(at(excludes_dirs, i));
 		char *excluded = NULL;
 
 		if (!is_platform_element(raw_entry, &excluded)) {
@@ -624,9 +578,11 @@ int is_path_excluded(Vector *excludes_dirs, char *dir_path) {
 	return 0;
 }
 
-void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
-				  Vector *hdr_dirs, Vector *static_libs, Vector *shared_libs,
-				  Vector *excludes_dirs) {
+void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
+				  Vector(const char *) hdr_dirs,
+				  Vector(const char *) static_libs,
+				  Vector(const char *) shared_libs,
+				  Vector(String *) excludes_dirs) {
 
 	if (is_path_excluded(excludes_dirs, string(dir_path))) {
 		return;

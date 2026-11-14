@@ -1,0 +1,8 @@
+{
+    "project_name": "arstd",
+    "project_language": "c",
+    "compiler_path": "gcc",
+    "version": "v0.1.5",
+    "executable": false,
+    "exclude_dirs": ["build"]
+}

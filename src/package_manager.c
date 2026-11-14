@@ -1,37 +1,38 @@
 #include <flint.h>
 
-Vector *remove_arr_entry(Arena *arena, Vector *arr, char *search_str) {
+Vector(String *)
+	remove_arr_entry(Arena *arena, Vector(String *) arr, char *search_str) {
 	if (!arr)
 		return NULL;
 	if (!length(arr) || !search_str)
 		return arr;
 
-	Vector *new_vec = vector_init(String *);
-	for (size_t i = 0; i < length(arr); i++) {
-		String *str = at(String *, arr, i);
+	Vector(String *) new_vec = vector_init(arena);
+	for (size_t i = 0; i < (size_t)length(arr); i++) {
+		String *str = at(arr, i);
 
-		if (str && !starts_with(string(str), search_str)) {
-			append(String *, new_vec, string_clone(arena, str));
+		if (str && !string_contains(str, search_str)) {
+			append(new_vec, str);
 		}
 	}
-	vector_free(&arr);
+	// vector_free(&arr);
 	return new_vec;
 }
 
 Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
-	Dependency *lib_details =
-		(Dependency *)arena_alloc(arena, sizeof(Dependency));
-	char *repo_name = get_repo_name(arena, libURL);
-	char *target_dir =
-		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
-
 	if (!directory_exists("./deps")) {
 		if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
 			return NULL;
 		}
 	}
+
+	ArenaTemp temp = arena_temp_begin(arena);
+	char *temp_repo = get_repo_name(arena, libURL);
+	char *target_dir = string(string_format(arena, "./deps/%s", temp_repo));
+
 	if (!directory_exists(target_dir)) {
 		if (MAKE_DIR(target_dir) != 0 && errno != EEXIST) {
+			arena_temp_end(temp);
 			return NULL;
 		}
 	}
@@ -42,53 +43,84 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	const char *sink_path = ">/dev/null 2>&1";
 #endif
 
-	char *command = string(string_concat_cstr(
-		arena, 20, "git -C \"", target_dir, "\" init ", sink_path,
-		" && git -C \"", target_dir, "\" remote add origin \"", libURL, "\" ",
-		sink_path, " && git -C \"", target_dir,
-		"\" fetch --depth 1 --tags origin ", ref_hash, " ", sink_path,
-		" && git -C \"", target_dir, "\" checkout FETCH_HEAD ", sink_path));
+	char *command = string(
+		string_format(arena,
+					  "git -C \"%s\" init %s && "
+					  "git -C \"%s\" remote add origin \"%s\" %s && "
+					  "git -C \"%s\" fetch --depth 1 --tags origin %s %s && "
+					  "git -C \"%s\" checkout FETCH_HEAD %s",
+					  target_dir, sink_path, target_dir, libURL, sink_path,
+					  target_dir, ref_hash, sink_path, target_dir, sink_path));
 
 	if (system(command) != 0) {
 		if (directory_exists(target_dir)) {
 			remove_directory(arena, target_dir);
 		}
+		arena_temp_end(temp);
 		return NULL;
 	}
 
-	char *tag = get_tag_from_hash(arena, target_dir, ref_hash);
+	char *raw_tag = get_tag_from_hash(arena, target_dir, ref_hash);
+	char tag_buf[256];
+	snprintf(tag_buf, sizeof(tag_buf), "%s", raw_tag ? raw_tag : "unknown");
 
-	lib_details->repo_name = repo_name;
-	lib_details->version = string_from(arena, tag);
+	remove_directory(arena,
+					 string(string_format(arena, "%s/.git", target_dir)));
+
+	arena_temp_end(temp);
+
+	Dependency *lib_details = arena_push(arena, Dependency, 1);
+	lib_details->repo_name = get_repo_name(arena, libURL);
+	lib_details->version = string_from(arena, tag_buf);
 	lib_details->hash = string_from(arena, (char *)ref_hash);
 	lib_details->remote = string_from(arena, libURL);
 
-	// printf("[*] Library: %s\n", lib_details->repo_name);
-	// printf("[*] Version: %s\n", string(lib_details->version));
-	// printf("[*] Hash: %s\n", string(lib_details->hash));
 	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
 		   string(lib_details->version), string(lib_details->hash));
-	remove_directory(arena,
-					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
+
 	return lib_details;
 }
 
 Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
+	ArenaTemp temp = arena_temp_begin(arena);
+
+	char *url = get_modified_url(arena, libURL);
+	if (url == NULL) {
+		printf("[x] Invalid URL\n");
+		arena_temp_end(temp);
+		return NULL;
+	}
+
+	char url_buf[1024];
+	snprintf(url_buf, sizeof(url_buf), "%s", url);
+
+	if (hash && hash[0] != '\0') {
+		arena_temp_end(temp);
+		return clone_lib_hashed(arena, url_buf, hash);
+	}
+
+	char *temp_repo = get_repo_name(arena, url_buf);
+	if (temp_repo == NULL) {
+		printf("[x] Invalid URL\n");
+		arena_temp_end(temp);
+		return NULL;
+	}
+
 	char *version_number = get_version_number(arena, libURL);
 	if (version_number == NULL) {
 		printf("[x] Version details missing\n");
-		return NULL;
-	}
-	char *url = get_modified_url(arena, libURL);
-	char *repo_name = get_repo_name(arena, url);
-
-	if (url == NULL || repo_name == NULL) {
-		printf("[x] Invalid URL\n");
+		arena_temp_end(temp);
 		return NULL;
 	}
 
-	char *target_dir =
-		string(string_concat_cstr(arena, 2, "./deps/", repo_name));
+	if (!directory_exists("./deps")) {
+		if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
+			arena_temp_end(temp);
+			return NULL;
+		}
+	}
+
+	char *target_dir = string(string_format(arena, "./deps/%s", temp_repo));
 
 #if defined(_WIN32)
 	const char *sink_path = ">NUL 2>&1";
@@ -96,260 +128,226 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	const char *sink_path = ">/dev/null 2>&1";
 #endif
 
-	// printf("[+] Installing %s...\n", repo_name);
 	String *command;
-
-	if (!hash || STR_CMP(hash, "") == 0) {
-		if (!directory_exists("./deps")) {
-			if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
-				return NULL;
-			}
-		}
-		if (STR_CMP(version_number, "unknown") == 0) {
-			command = string_concat_cstr(
-				arena, 7, "git clone --depth 1 --quiet \"", url, "\" \"",
-				target_dir, "\" ", sink_path, "");
-		} else {
-			command = string_concat_cstr(
-				arena, 8, "git clone --depth 1 --quiet --branch \"",
-				version_number, "\" \"", url, "\" \"", target_dir, "\" ",
-				sink_path);
-		}
+	if (STR_CMP(version_number, "unknown") == 0) {
+		command =
+			string_format(arena, "git clone --depth 1 --quiet \"%s\" \"%s\" %s",
+						  url_buf, target_dir, sink_path);
 	} else {
-		return clone_lib_hashed(arena, url, hash);
+		command = string_format(
+			arena,
+			"git clone --depth 1 --quiet --branch \"%s\" \"%s\" \"%s\" %s",
+			version_number, url_buf, target_dir, sink_path);
 	}
 
 	if (system(string(command)) != 0) {
 		if (directory_exists(target_dir)) {
 			remove_directory(arena, target_dir);
 		}
+		arena_temp_end(temp);
 		return NULL;
 	}
 
 	char *ref_hash = get_lib_hash(arena, target_dir);
 	char *fetched_version = get_tag_from_hash(arena, target_dir, ref_hash);
-	Dependency *lib_details =
-		(Dependency *)arena_alloc(arena, sizeof(Dependency));
-	lib_details->repo_name = repo_name;
-	lib_details->version = string_from(arena, fetched_version);
-	lib_details->hash = string_from(arena, ref_hash);
-	lib_details->remote = string_from(arena, url);
 
-	// printf("[*] Library: %s\n", lib_details->repo_name);
-	// printf("[*] Version: %s\n", string(lib_details->version));
-	// printf("[*] Hash: %s\n", string(lib_details->hash));
-	// printf("[✓] Done!\n\n");
+	char hash_buf[128];
+	char version_buf[256];
+	snprintf(hash_buf, sizeof(hash_buf), "%s", ref_hash ? ref_hash : "");
+	snprintf(version_buf, sizeof(version_buf), "%s",
+			 fetched_version ? fetched_version : "unknown");
+
+	remove_directory(arena,
+					 string(string_format(arena, "%s/.git", target_dir)));
+
+	arena_temp_end(temp);
+
+	Dependency *lib_details = arena_push(arena, Dependency, 1);
+	lib_details->repo_name = get_repo_name(arena, url_buf);
+	lib_details->version = string_from(arena, version_buf);
+	lib_details->hash = string_from(arena, hash_buf);
+	lib_details->remote = string_from(arena, url_buf);
+
 	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
 		   string(lib_details->version), string(lib_details->hash));
 
-	remove_directory(arena,
-					 string(string_concat_cstr(arena, 2, target_dir, "/.git")));
 	return lib_details;
 }
 
-void sync_flags(Config *conf, Vector *flags) {
+void sync_flags(Config *conf, Vector(String *) flags) {
 	for (int j = 0; j < length(flags); j++) {
-		set_add_str(conf->flags,
-					string_clone(conf->arena, at(String *, flags, j)));
+		String *flag = at(flags, j);
+		if (!set_contains_str(conf->flags, flag)) {
+			append(conf->flags, string_clone(conf->arena, flag));
+		}
 	}
 }
-void sync_lib_links(Config *conf, Vector *lib_links) {
+
+void sync_lib_links(Config *conf, Vector(String *) lib_links) {
 	for (int j = 0; j < length(lib_links); j++) {
-		set_add_str(conf->lib_links,
-					string_clone(conf->arena, at(String *, lib_links, j)));
-	}
-}
-void sync_excludes(Config *conf, Vector *excludes, char *repo_name) {
-	for (int j = 0; j < length(excludes); j++) {
-
-		char *raw_str = string(at(String *, excludes, j));
-		char *colon = strchr(raw_str, ':');
-
-		if (colon) {
-			size_t prefix_len = (size_t)(colon - raw_str) + 1;
-			char *prefix = arena_alloc(conf->arena, prefix_len + 1);
-			memcpy(prefix, raw_str, prefix_len);
-			prefix[prefix_len] = '\0';
-
-			const char *path = colon + 1;
-
-			set_add_str(conf->excludes,
-						string_concat_cstr(conf->arena, 5, prefix, "deps/",
-										   repo_name, "/", path));
-
-		} else {
-			set_add_str(conf->excludes,
-						string_concat_cstr(conf->arena, 4, "deps/", repo_name,
-										   "/", raw_str));
+		String *link = at(lib_links, j);
+		if (!set_contains_str(conf->lib_links, link)) {
+			append(conf->lib_links, string_clone(conf->arena, link));
 		}
 	}
 }
-void sync_exclude_dirs(Config *conf, Vector *exclude_dirs, char *repo_name) {
-	for (int j = 0; j < length(exclude_dirs); j++) {
 
-		char *raw_str = string(at(String *, exclude_dirs, j));
+static void sync_repo_paths(Config *conf, Vector(String *) dest,
+							Vector(String *) src, char *repo_name,
+							bool allow_empty_subpath) {
+	for (int j = 0; j < length(src); j++) {
+		char *raw_str = string(at(src, j));
 		char *colon = strchr(raw_str, ':');
 
-		if (colon) {
-			size_t prefix_len = (size_t)(colon - raw_str) + 1;
-			char *prefix = arena_alloc(conf->arena, prefix_len + 1);
-			memcpy(prefix, raw_str, prefix_len);
-			prefix[prefix_len] = '\0';
+		ArenaTemp temp = arena_temp_begin(conf->arena);
+		String *entry;
 
+		if (colon) {
+			int prefix_len = (int)(colon - raw_str) + 1;
 			const char *path = colon + 1;
 
-			if (STR_CMP(path, "") == 0) {
-				set_add_str(conf->exclude_dirs,
-							string_concat_cstr(conf->arena, 3, prefix, "deps/",
-											   repo_name));
+			if (allow_empty_subpath && path[0] == '\0') {
+				entry = string_format(conf->arena, "%.*sdeps/%s", prefix_len,
+									  raw_str, repo_name);
 			} else {
-				set_add_str(conf->exclude_dirs,
-							string_concat_cstr(conf->arena, 5, prefix, "deps/",
-											   repo_name, "/", path));
+				entry = string_format(conf->arena, "%.*sdeps/%s/%s", prefix_len,
+									  raw_str, repo_name, path);
 			}
-
 		} else {
-			if (STR_CMP(raw_str, "") == 0) {
-				set_add_str(
-					conf->exclude_dirs,
-					string_concat_cstr(conf->arena, 2, "deps/", repo_name));
+			if (allow_empty_subpath && raw_str[0] == '\0') {
+				entry = string_format(conf->arena, "deps/%s", repo_name);
 			} else {
-				set_add_str(conf->exclude_dirs,
-							string_concat_cstr(conf->arena, 4, "deps/",
-											   repo_name, "/", raw_str));
+				entry = string_format(conf->arena, "deps/%s/%s", repo_name,
+									  raw_str);
 			}
+		}
+
+		if (set_contains_str(dest, entry)) {
+			arena_temp_end(temp);
+		} else {
+			append(dest, entry);
 		}
 	}
 }
-void sync_exclude_exception(Config *conf, Vector *exclude_exception,
+
+void sync_excludes(Config *conf, Vector(String *) excludes, char *repo_name) {
+	sync_repo_paths(conf, conf->excludes, excludes, repo_name, false);
+}
+
+void sync_exclude_dirs(Config *conf, Vector(String *) exclude_dirs,
+					   char *repo_name) {
+	sync_repo_paths(conf, conf->exclude_dirs, exclude_dirs, repo_name, true);
+}
+
+void sync_exclude_exception(Config *conf, Vector(String *) exclude_exception,
 							char *repo_name) {
-	for (int j = 0; j < length(exclude_exception); j++) {
-		char *raw_str = string(at(String *, exclude_exception, j));
-		char *colon = strchr(raw_str, ':');
-
-		if (colon) {
-			size_t prefix_len = (size_t)(colon - raw_str) + 1;
-			char *prefix = arena_alloc(conf->arena, prefix_len + 1);
-			memcpy(prefix, raw_str, prefix_len);
-			prefix[prefix_len] = '\0';
-
-			const char *path = colon + 1;
-
-			set_add_str(conf->exclude_exception,
-						string_concat_cstr(conf->arena, 5, prefix, "deps/",
-										   repo_name, "/", path));
-
-		} else {
-			set_add_str(conf->exclude_exception,
-						string_concat_cstr(conf->arena, 4, "deps/", repo_name,
-										   "/", raw_str));
-		}
-	}
+	sync_repo_paths(conf, conf->exclude_exception, exclude_exception, repo_name,
+					false);
 }
-void sync_tmpl(Config *conf, Cmap *tmpl) {
-	if (tmpl) {
-		Vector *tmpl_keys = map_keys(tmpl);
-		for (int j = 0; j < length(tmpl_keys); j++) {
-			map_add(
-				conf->tmpl, at(char *, tmpl_keys, j),
-				(String *)map_get(
-					tmpl, arena_strdup(conf->arena, at(char *, tmpl_keys, j))));
+
+void sync_tmpl(Config *conf, Cmap(String *) tmpl) {
+	if (!tmpl) {
+		return;
+	}
+
+	Vector(char *) tmpl_keys = map_keys(tmpl);
+	for (int j = 0; j < length(tmpl_keys); j++) {
+		char *key = at(tmpl_keys, j);
+		String *val = map_get(tmpl, key);
+		String *existing = map_get(conf->tmpl, key);
+
+		if (existing && string_comp(existing, val)) {
+			continue;
 		}
-		vector_free(&tmpl_keys);
+
+		map_add(conf->tmpl, key, string_clone(conf->arena, val));
 	}
 }
 
 void update_dependency_map(Config *conf, Dependency *lib) {
 	map_add(conf->dependencies, lib->repo_name, lib);
 }
-void update_lock(Cmap *lock, Dependency *lib) {
+
+void update_lock(Cmap(Dependency *) lock, Dependency *lib) {
 	map_add(lock, lib->repo_name, lib);
 }
 
-void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
-				   bool sync) {
+void fetch_library(Config *current_config, char *libURL, char *hash,
+				   Cmap(Dependency *) lock, bool sync) {
 	Dependency *lib_details = clone_lib(current_config->arena, libURL, hash);
-
 	if (lib_details == NULL) {
 		return;
 	}
-	Dependency *entry = arena_alloc(current_config->arena, sizeof(Dependency));
-	entry->repo_name = lib_details->repo_name;
-	entry->remote = lib_details->remote;
-	entry->version = lib_details->version;
-	entry->hash = lib_details->hash;
 
-	update_lock(lock, entry);
-	update_dependency_map(current_config, entry);
+	update_lock(lock, lib_details);
+	update_dependency_map(current_config, lib_details);
 
+	ArenaTemp temp = arena_temp_begin(current_config->arena);
 	String *config_path =
-		string_concat_cstr(current_config->arena, 3, "./deps/",
-						   lib_details->repo_name, "/composition.json");
-	if (!sync && !is_mybuild_config_present(string(config_path))) {
+		string_format(current_config->arena, "./deps/%s/composition.json",
+					  lib_details->repo_name);
+	bool has_config = is_mybuild_config_present(string(config_path));
+
+	if (!has_config) {
+		arena_temp_end(temp);
 		return;
 	}
 
-	if (is_mybuild_config_present(string(config_path))) {
-		Config *dep_config = config_init();
-		read_flint_composition(string(config_path), dep_config);
+	Config *dep_config = config_init();
+	read_flint_composition(string(config_path), dep_config);
+	arena_temp_end(temp);
 
-		sync_flags(current_config, dep_config->flags);
-		sync_lib_links(current_config, dep_config->lib_links);
-
-		sync_tmpl(current_config, dep_config->tmpl);
-		sync_excludes(current_config, dep_config->excludes,
+	sync_flags(current_config, dep_config->flags);
+	sync_lib_links(current_config, dep_config->lib_links);
+	sync_tmpl(current_config, dep_config->tmpl);
+	sync_excludes(current_config, dep_config->excludes, lib_details->repo_name);
+	sync_exclude_dirs(current_config, dep_config->exclude_dirs,
 					  lib_details->repo_name);
-		sync_exclude_dirs(current_config, dep_config->exclude_dirs,
-						  lib_details->repo_name);
-		sync_exclude_exception(current_config, dep_config->exclude_exception,
-							   lib_details->repo_name);
+	sync_exclude_exception(current_config, dep_config->exclude_exception,
+						   lib_details->repo_name);
 
-		if (map_len(dep_config->dependencies)) {
-			Vector *dep_dependencies = map_keys(dep_config->dependencies);
-			for (int i = 0; i < length(dep_dependencies); i++) {
-				Dependency *dep_fetch = (Dependency *)map_get(
-					dep_config->dependencies, at(char *, dep_dependencies, i));
-				if (!lock_contains(lock, string(dep_fetch->remote))) {
-					char *modified_url = string(string_concat_cstr(
-						current_config->arena, 3, string(dep_fetch->remote),
-						"@", string(dep_fetch->version)));
-					char *hash = "";
-					if (dep_fetch->hash) {
-						hash = string(dep_fetch->hash);
-					}
-					fetch_library(current_config, modified_url, hash, lock,
-								  false);
-				}
+	if (map_len(dep_config->dependencies)) {
+		Vector(char *) dep_dependencies = map_keys(dep_config->dependencies);
+		for (int i = 0; i < length(dep_dependencies); i++) {
+			Dependency *dep_fetch =
+				map_get(dep_config->dependencies, at(dep_dependencies, i));
+			if (!lock_contains(dep_config->arena, lock,
+							   string(dep_fetch->remote))) {
+				char *modified_url = string(string_format(
+					dep_config->arena, "%s@%s", string(dep_fetch->remote),
+					string(dep_fetch->version)));
+				char *dep_hash = dep_fetch->hash ? string(dep_fetch->hash) : "";
+				fetch_library(current_config, modified_url, dep_hash, lock,
+							  false);
 			}
-
-			vector_free(&dep_dependencies);
 		}
-		config_free(dep_config);
 	}
+	config_free(dep_config);
 }
 
-void sync_remote_composition(Config *conf, Cmap *lock, char *fragment) {
+void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
+							 char *fragment) {
 	char *colon = strchr(fragment, ':');
 	if (!colon)
 		return;
 	char *repo_name = colon + 1;
-	// Cmap *lock = read_lock_file();
+
+	Arena *scratch = arena_init(4096);
 	Sync_config *remote_composition =
-		get_remote_composition(conf->arena, repo_name);
+		get_remote_composition(scratch, repo_name);
 	if (remote_composition == NULL) {
 		printf("Unable to fetch remote composition\n");
+		arena_free(&scratch);
 		return;
 	}
-	if (!lock_contains(lock, string(remote_composition->remote))) {
-		char *modified_url = string(string_concat_cstr(
-			conf->arena, 3, string(remote_composition->remote), "@",
-			string(remote_composition->version)));
-		char *hash = "";
-		if (remote_composition->hash) {
-			hash = string(remote_composition->hash);
-		}
 
-		// printf("Modified URL: %s\n", modified_url);
+	if (!lock_contains(scratch, lock, string(remote_composition->remote))) {
+		char *modified_url = string(
+			string_format(scratch, "%s@%s", string(remote_composition->remote),
+						  string(remote_composition->version)));
+		char *hash =
+			remote_composition->hash ? string(remote_composition->hash) : "";
+
 		fetch_library(conf, modified_url, hash, lock, true);
 
 		sync_flags(conf, remote_composition->flags);
@@ -363,19 +361,20 @@ void sync_remote_composition(Config *conf, Cmap *lock, char *fragment) {
 		printf("[*] Library '%s' already installed, hence skipping...\n",
 			   repo_name);
 	}
-	// write_lock_file(lock);
-	sync_config_free(remote_composition);
+
+	arena_free(&scratch);
 }
 
 void add_lib(char *libURL) {
 	Config *conf = config_init();
-	Cmap *lock = read_lock_file();
 	read_flint_composition("composition.json", conf);
+	Cmap(Dependency *) lock = read_lock_file(conf->arena);
 
 	if (strncmp(libURL, "cherts:", 7) == 0) {
 		sync_remote_composition(conf, lock, libURL);
 	} else {
-		if (!lock_contains(lock, get_modified_url(conf->arena, libURL))) {
+		if (!lock_contains(conf->arena, lock,
+						   get_modified_url(conf->arena, libURL))) {
 			fetch_library(conf, libURL, "", lock, false);
 		} else {
 			printf("[*] Dependency already available or malformed URL, "
@@ -392,29 +391,34 @@ void add_lib(char *libURL) {
 void sync_lib(char *elem) {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
-	Vector *sync_keys = map_keys(conf->sync);
-	Vector *dep_keys = map_keys(conf->dependencies);
 
 	if (elem && STR_CMP(elem, "all") == 0) {
 		remove("flint.lock");
+		ArenaTemp temp = arena_temp_begin(conf->arena);
 		remove_directory(conf->arena, "deps");
+		arena_temp_end(temp);
 	}
 
-	Cmap *lock = read_lock_file();
+	Cmap(Dependency *) lock = read_lock_file(conf->arena);
 
-	if (length(sync_keys)) {
+	if (map_len(conf->sync) > 0) {
+		Vector(char *) sync_keys = map_keys(conf->sync);
 		for (int i = 0; i < length(sync_keys); i++) {
-			char *repo_name = at(char *, sync_keys, i);
-			Sync_config *dependency =
-				(Sync_config *)map_get(conf->sync, at(char *, sync_keys, i));
-			if (!lock_contains(lock, string(dependency->remote))) {
-				char *modified_url = string(string_concat_cstr(
-					conf->arena, 3, string(dependency->remote), "@",
-					string(dependency->version)));
-				char *hash = "";
-				if (dependency->hash) {
-					hash = string(dependency->hash);
-				}
+			char *repo_name = at(sync_keys, i);
+			Sync_config *dependency = map_get(conf->sync, repo_name);
+
+			ArenaTemp temp = arena_temp_begin(conf->arena);
+			bool is_locked =
+				lock_contains(conf->arena, lock, string(dependency->remote));
+			arena_temp_end(temp);
+
+			if (!is_locked) {
+				char modified_url[1024];
+				snprintf(modified_url, sizeof(modified_url), "%s@%s",
+						 string(dependency->remote),
+						 string(dependency->version));
+				char *hash = dependency->hash ? string(dependency->hash) : "";
+
 				fetch_library(conf, modified_url, hash, lock, true);
 
 				sync_flags(conf, dependency->flags);
@@ -430,82 +434,67 @@ void sync_lib(char *elem) {
 					repo_name);
 			}
 		}
+		// vector_free(&sync_keys);
 	}
 
-	if (length(dep_keys)) {
+	if (map_len(conf->dependencies) > 0) {
+		Vector(char *) dep_keys = map_keys(conf->dependencies);
 		for (int i = 0; i < length(dep_keys); i++) {
-			char *repo_name = at(char *, dep_keys, i);
-			Dependency *dependency = (Dependency *)map_get(
-				conf->dependencies, at(char *, dep_keys, i));
-			if (!lock_contains(lock, string(dependency->remote))) {
-				char *modified_url = string(string_concat_cstr(
-					conf->arena, 3, string(dependency->remote), "@",
-					string(dependency->version)));
-				char *hash = "";
-				if (dependency->hash) {
-					hash = string(dependency->hash);
-				}
+			char *repo_name = at(dep_keys, i);
+			Dependency *dependency = map_get(conf->dependencies, repo_name);
+
+			ArenaTemp temp = arena_temp_begin(conf->arena);
+			bool is_locked =
+				lock_contains(conf->arena, lock, string(dependency->remote));
+			arena_temp_end(temp);
+
+			if (!is_locked) {
+				char modified_url[1024];
+				snprintf(modified_url, sizeof(modified_url), "%s@%s",
+						 string(dependency->remote),
+						 string(dependency->version));
+				char *hash = dependency->hash ? string(dependency->hash) : "";
+
 				fetch_library(conf, modified_url, hash, lock, true);
 			}
 		}
+		// vector_free(&dep_keys);
 	}
 
 	write_flint_composition("composition.json", conf);
 	write_lock_file(lock);
-	vector_free(&sync_keys);
-	vector_free(&dep_keys);
 	generate_compile_commands(conf);
 	config_free(conf);
 }
 
-void remove_library_partial(char *repo_name) {
-	Cmap *lock = read_lock_file();
+void remove_library_partial(Arena *arena, char *repo_name) {
+	Cmap(Dependency *) lock = read_lock_file(arena);
 
-	Arena *arena = arena_init(1024);
 	remove_directory(
 		arena, string(string_concat_cstr(arena, 2, "./deps/", repo_name)));
-	arena_free(&arena);
 
-	Cmap *new_lock = map_init();
-
-	Vector *dep_list = map_keys(lock);
-
-	for (int i = 0; i < length(dep_list); i++) {
-		char *key = at(char *, dep_list, i);
-		if (STR_CMP(key, repo_name) != 0) {
-			Dependency *old_dep = (Dependency *)map_get(lock, key);
-			Dependency *new_dep =
-				arena_alloc(new_lock->arena, sizeof(Dependency));
-			new_dep->version = string_clone(new_lock->arena, old_dep->version);
-			new_dep->remote = string_clone(new_lock->arena, old_dep->remote);
-			new_dep->hash = string_clone(new_lock->arena, old_dep->hash);
-			map_add(new_lock, at(char *, dep_list, i), new_dep);
-		}
-	}
-
-	write_lock_file(new_lock);
-	vector_free(&dep_list);
-	map_free(lock);
+	map_remove(lock, repo_name);
+	write_lock_file(lock);
 }
 
 void remove_library(char *repo_name) {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
 
-	Dependency *element = (Dependency *)map_get(conf->dependencies, repo_name);
-
-	if (!element) {
+	if (!map_has(conf->dependencies, repo_name)) {
 		config_free(conf);
 		printf("[x] No dependency named '%s' found\n", repo_name);
 		return;
 	}
 
-	printf("[+] Removing '%s'...\n", repo_name);
+	// printf("[+] Removing '%s'...\n", repo_name);
 
-	remove_library_partial(repo_name);
+	ArenaTemp temp = arena_temp_begin(conf->arena);
+	remove_library_partial(conf->arena, repo_name);
+	arena_temp_end(temp);
 
-	char *search_str =
-		string(string_concat_cstr(conf->arena, 2, "deps/", repo_name));
+	char search_str[512];
+	snprintf(search_str, sizeof(search_str), "deps/%s", repo_name);
 
 	conf->excludes = remove_arr_entry(conf->arena, conf->excludes, search_str);
 	conf->exclude_dirs =
@@ -513,44 +502,27 @@ void remove_library(char *repo_name) {
 	conf->exclude_exception =
 		remove_arr_entry(conf->arena, conf->exclude_exception, search_str);
 
-	Vector *dep_list = map_keys(conf->dependencies);
-	Cmap *new_dep_map = map_init();
+	map_remove(conf->dependencies, repo_name);
 
-	for (int i = 0; i < length(dep_list); i++) {
-		char *key = at(char *, dep_list, i);
-		if (STR_CMP(key, repo_name) != 0) {
-			Dependency *old_dep =
-				(Dependency *)map_get(conf->dependencies, key);
-			Dependency *new_dep = arena_alloc(conf->arena, sizeof(Dependency));
-			new_dep->version = string_clone(conf->arena, old_dep->version);
-			new_dep->remote = string_clone(conf->arena, old_dep->remote);
-			new_dep->hash = string_clone(conf->arena, old_dep->hash);
-			map_add(new_dep_map, at(char *, dep_list, i), new_dep);
-		}
-	}
-
-	map_free(conf->dependencies);
-	conf->dependencies = new_dep_map;
-
+	printf("[✓] Removed %s!\n", repo_name);
 	write_flint_composition("composition.json", conf);
-
-	vector_free(&dep_list);
 	generate_compile_commands(conf);
 	config_free(conf);
-	printf("[✓] Done!\n");
 }
 
 void list_deps() {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
 
-	Vector *dep_list = map_keys(conf->dependencies);
-	for (int i = 0; i < length(dep_list); i++) {
-		char *key = at(char *, dep_list, i);
-		Dependency *dep = (Dependency *)map_get(conf->dependencies, key);
-		printf("[*] %s: %s\n", key, string(dep->version));
+	if (map_len(conf->dependencies) > 0) {
+		Vector(char *) dep_list = map_keys(conf->dependencies);
+		for (int i = 0; i < length(dep_list); i++) {
+			char *key = at(dep_list, i);
+			Dependency *dep = map_get(conf->dependencies, key);
+			printf("[*] %s: %s\n", key, string(dep->version));
+		}
+	} else {
+		printf("[x] No dependencies found.\n");
 	}
-	vector_free(&dep_list);
-
 	config_free(conf);
 }

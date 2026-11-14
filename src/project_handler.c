@@ -86,17 +86,13 @@ int init_project() {
 	}
 	Config *conf = config_init();
 
-	conf->executable = true;
-
 	printf("[+] Bootstrapping New Project...\n");
 	printf("[?] Project Name: ");
 	conf->project_name = string_trim(conf->arena, string_get(conf->arena));
 
-	String *project_dir = string_from(conf->arena, ".");
-
 	printf("[?] Language (c/c++) [default: c]: ");
 	conf->project_language = string_trim(conf->arena, string_get(conf->arena));
-	if (STR_CMP(string(conf->project_language), "") == 0) {
+	if (string_len(conf->project_language) == 0) {
 		conf->project_language = string_from(conf->arena, "c");
 	}
 
@@ -105,10 +101,10 @@ int init_project() {
 
 	printf("[?] Compiler path [default: gcc]: ");
 	conf->compiler_path = string_trim(conf->arena, string_get(conf->arena));
-
-	if (STR_CMP(string(conf->compiler_path), "") == 0) {
+	if (string_len(conf->compiler_path) == 0) {
 		conf->compiler_path = string_from(conf->arena, "gcc");
 	}
+
 	if (!check_available_tool(string(conf->compiler_path))) {
 		fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
 				string(conf->compiler_path));
@@ -136,129 +132,67 @@ int init_project() {
 		goto CLEANUP;
 	}
 
-	String *dep_dir =
-		string_concat_cstr(conf->arena, 2, string(project_dir), "/deps");
-
-	if (!directory_exists(string(dep_dir))) {
-		dir_create_status = MAKE_DIR(string(dep_dir));
+	if (!directory_exists("./deps")) {
+		dir_create_status = MAKE_DIR("./deps");
 		if (dir_create_status != 0) {
 			ret = 1;
 			goto CLEANUP;
 		}
 	}
 
-	conf->executable = STR_CMP(string(project_type), "lib") == 0 ? false : true;
-	if (conf->executable) {
-		String *src_dir =
-			string_concat_cstr(conf->arena, 2, string(project_dir), "/src");
-		if (!directory_exists(string(src_dir))) {
-			dir_create_status = MAKE_DIR(string(src_dir));
-		}
-	} else {
-		String *lib_dir =
-			string_concat_cstr(conf->arena, 2, string(project_dir), "/lib");
-		if (!directory_exists(string(lib_dir))) {
-			dir_create_status = MAKE_DIR(string(lib_dir));
-		}
-	}
-
-	if (dir_create_status != 0) {
-		ret = 1;
-		goto CLEANUP;
-	}
-
-	char *init_incl_dir = string(
-		string_concat_cstr(conf->arena, 2, string(project_dir), "/include"));
-	char *init_static_dir = string(
-		string_concat_cstr(conf->arena, 2, string(project_dir), "/static"));
-	char *init_shared_dir = string(
-		string_concat_cstr(conf->arena, 2, string(project_dir), "/shared"));
-
-	if (!directory_exists(init_incl_dir)) {
-		dir_create_status = MAKE_DIR(init_incl_dir);
-		if (dir_create_status != 0) {
-			ret = 1;
-			goto CLEANUP;
-		}
-	}
-	if (!directory_exists(init_static_dir)) {
-		dir_create_status = MAKE_DIR(init_static_dir);
-		if (dir_create_status != 0) {
-			ret = 1;
-			goto CLEANUP;
-		}
-	}
-	if (!directory_exists(init_shared_dir)) {
-		dir_create_status = MAKE_DIR(init_shared_dir);
+	conf->executable = STR_CMP(string(project_type), "lib") != 0;
+	const char *code_dir = conf->executable ? "./src" : "./lib";
+	if (!directory_exists(code_dir)) {
+		dir_create_status = MAKE_DIR(code_dir);
 		if (dir_create_status != 0) {
 			ret = 1;
 			goto CLEANUP;
 		}
 	}
 
-	switch (check_project_lang(string(conf->project_language))) {
-	case 0: {
-		char *file_name;
-		file_name = conf->executable
-						? "./src/main.cpp"
-						: string(string_concat_cstr(conf->arena, 3, "./lib/",
-													string(conf->project_name),
-													".cpp"));
-		if (!file_exists(file_name)) {
-			file_create_status = create_append_file(
-				file_name,
-				"#include <iostream>\n\nint main() "
-				"{\n\tstd::cout << \"Hello, World!\" << std::endl;\n}");
+	const char *dirs[] = {"./include", "./static", "./shared"};
+	for (size_t i = 0; i < 3; i++) {
+		if (!directory_exists(dirs[i])) {
+			dir_create_status = MAKE_DIR(dirs[i]);
+			if (dir_create_status != 0) {
+				ret = 1;
+				goto CLEANUP;
+			}
 		}
-
-		if (file_create_status == 1) {
-			ret = 1;
-			goto CLEANUP;
-		}
-		char *header_file = string(string_concat_cstr(
-			conf->arena, 3, "./include/", string(conf->project_name), ".hpp"));
-
-		if (!file_exists(header_file)) {
-			file_create_status = create_append_file(header_file, "");
-		}
-
-		if (file_create_status == 1) {
-			ret = 1;
-			goto CLEANUP;
-		}
-		break;
 	}
-	default: {
-		char *file_name =
-			conf->executable
-				? "./src/main.c"
-				: string(string_concat_cstr(conf->arena, 3, "./lib/",
-											string(conf->project_name), ".c"));
-		if (!file_exists(file_name)) {
-			file_create_status = create_append_file(
-				file_name, "#include <stdio.h>\n\nint main() "
-						   "{\n\tprintf(\"Hello, World!\");\n}");
-		}
 
-		if (file_create_status == 1) {
+	bool is_cpp = (check_project_lang(string(conf->project_language)) == 0);
+	const char *src_ext = is_cpp ? ".cpp" : ".c";
+	const char *hdr_ext = is_cpp ? ".hpp" : ".h";
+	const char *boilerplate =
+		is_cpp ? "#include <iostream>\n\nint main() "
+				 "{\n\tstd::cout << \"Hello, World!\" << std::endl;\n}"
+			   : "#include <stdio.h>\n\nint main() "
+				 "{\n\tprintf(\"Hello, World!\");\n}";
+
+	char *file_name =
+		conf->executable
+			? (is_cpp ? "./src/main.cpp" : "./src/main.c")
+			: string(string_concat_cstr(conf->arena, 3, "./lib/",
+										string(conf->project_name), src_ext));
+
+	if (!file_exists(file_name)) {
+		if (create_append_file(file_name, (char *)boilerplate) == 1) {
 			ret = 1;
 			goto CLEANUP;
 		}
+	}
 
-		char *header_file = string(string_concat_cstr(
-			conf->arena, 3, "./include/", string(conf->project_name), ".h"));
+	char *header_file = string(string_concat_cstr(
+		conf->arena, 3, "./include/", string(conf->project_name), hdr_ext));
 
-		if (!file_exists(header_file)) {
-			file_create_status = create_append_file(header_file, "");
-		}
-
-		if (file_create_status == 1) {
+	if (!file_exists(header_file)) {
+		if (create_append_file(header_file, "") == 1) {
 			ret = 1;
 			goto CLEANUP;
 		}
-		break;
 	}
-	}
+
 	conf->version = string_from(conf->arena, "unknown");
 	write_flint_composition("composition.json", conf);
 	printf("[✓] Flint project '%s' successfully initiated\n",
@@ -271,41 +205,34 @@ CLEANUP:
 }
 
 String *build_project(Arena *global_str_arena) {
-	String *output = string_from(global_str_arena, "");
+	String *output = NULL;
 
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
 
 	printf("[+] Gathering Resources\n");
-	Vector *header_arr = vector_init(const char *);
-	Vector *src_arr = vector_init(const char *);
-	Vector *static_lib_arr = vector_init(const char *);
-	Vector *shared_lib_arr = vector_init(const char *);
+	Vector(const char *) header_arr = vector_init(conf->arena);
+	Vector(const char *) src_arr = vector_init(conf->arena);
+	Vector(const char *) static_lib_arr = vector_init(conf->arena);
+	Vector(const char *) shared_lib_arr = vector_init(conf->arena);
 
-	Vector *header_vec = vector_init(char *);
-	Vector *src_file_arr = vector_init(char *);
-	Vector *stat_file_arr = vector_init(char *);
-	Vector *shared_file_arr = vector_init(char *);
+	Vector(char *) header_vec = vector_init(conf->arena);
+	Vector(char *) src_file_arr = vector_init(conf->arena);
+	Vector(char *) stat_file_arr = vector_init(conf->arena);
+	Vector(char *) shared_file_arr = vector_init(conf->arena);
 
 	traverse_dir(conf->arena, string_from(conf->arena, "."), src_arr,
 				 header_arr, static_lib_arr, shared_lib_arr,
 				 conf->exclude_dirs);
 
 	for (int i = 0; i < length(conf->exclude_exception); i++) {
-		char *raw_entry = string(at(String *, conf->exclude_exception, i));
+		char *raw_entry = string(at(conf->exclude_exception, i));
 		char *excluded = NULL;
 
-		if (!is_platform_element(raw_entry, &excluded)) {
+		if (!is_platform_element(raw_entry, &excluded) || excluded[0] == '\0') {
 			continue;
 		}
 
-		size_t ex_len = strlen(excluded);
-		if (ex_len == 0)
-			continue;
-
-		// set_add(src_arr, string(at(String *, conf->exclude_exception, i)));
-		// set_add(header_arr, string(at(String *, conf->exclude_exception,
-		// i)));
 		set_add(src_arr, excluded);
 		set_add(header_arr, excluded);
 	}
@@ -329,25 +256,24 @@ String *build_project(Arena *global_str_arena) {
 
 	String *cwd = get_current_working_dir(conf->arena);
 
-	String *header_list = string_from(conf->arena, "");
+	Vector(String *) header_flags = vector_init(conf->arena);
 	for (int i = 0; i < length(header_arr); i++) {
-		header_list =
-			string_concat_cstr(conf->arena, 4, string(header_list), "\n\"-I./",
-							   at(char *, header_arr, i), "\"");
+		append(header_flags, string_concat_cstr(conf->arena, 3, "\"-I./",
+												at(header_arr, i), "\""));
 	}
+	String *headers = length(header_flags) > 0
+						  ? string_join(conf->arena, header_flags, "\n")
+						  : string_from(conf->arena, "");
 
 	get_header_vec(conf, header_arr, header_vec, cwd);
 	get_src_vec(conf, src_arr, src_file_arr, cwd);
 	get_stat_lib_vec(conf, static_lib_arr, stat_file_arr, cwd);
 	get_shared_lib_vec(conf, shared_lib_arr, shared_file_arr, cwd);
 
-	String *stat_lib = string_from(conf->arena, "");
-	String *shared_lib = string_from(conf->arena, "");
-
+	String *stat_lib = NULL;
 	String *archiever = get_archiever(conf->arena);
 	const char *ar_tool =
-		(STR_CMP(string(archiever), "") != 0 &&
-		 STR_CMP(string(archiever), "lib") != 0 &&
+		(string_len(archiever) > 0 && STR_CMP(string(archiever), "lib") != 0 &&
 		 STR_CMP(string(archiever), "llvm-lib") != 0)
 			? string(archiever)
 			: (check_available_tool("llvm-ar") ? "llvm-ar" : "ar");
@@ -361,9 +287,8 @@ String *build_project(Arena *global_str_arena) {
 			stat_lib = string_trim(conf->arena, static_libs);
 			if (string_len(stat_lib) > 0) {
 #if defined(_WIN32)
-
 				char *win_stat_lib =
-					arena_strdup(conf->arena, string(stat_lib));
+					string(string_clone(conf->arena, stat_lib));
 				for (char *p = win_stat_lib; *p; p++) {
 					if (*p == '/')
 						*p = '\\';
@@ -371,7 +296,6 @@ String *build_project(Arena *global_str_arena) {
 				cmd_err = system(string(string_concat_cstr(
 					conf->arena, 5, "cd /d \".\\build\\.cache\" && for %f in (",
 					win_stat_lib, ") do ", ar_tool, " x \"%f\"")));
-
 #else
 				cmd_err = system(string(string_concat_cstr(
 					conf->arena, 5, "for f in ", string(stat_lib),
@@ -390,12 +314,11 @@ String *build_project(Arena *global_str_arena) {
 #if defined(_WIN32)
 			cmd_err = system(string(string_concat_cstr(
 				conf->arena, 7, "cd /d \"./build/.cache\" && ", ar_tool,
-				" x \"", string(cwd), "/", at(char *, stat_file_arr, i),
-				"\"")));
+				" x \"", string(cwd), "/", at(stat_file_arr, i), "\"")));
 #else
 			cmd_err = system(string(string_concat_cstr(
 				conf->arena, 7, "(cd ./build/.cache && ", ar_tool, " x \"",
-				string(cwd), "/", at(char *, stat_file_arr, i), "\")")));
+				string(cwd), "/", at(stat_file_arr, i), "\")")));
 #endif
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered while adding static libs\n");
@@ -404,6 +327,7 @@ String *build_project(Arena *global_str_arena) {
 		}
 	}
 
+	String *shared_lib = NULL;
 	if (length(shared_file_arr) == 0) {
 		if (directory_exists("./shared")) {
 			String *shared_libs = collect_files(
@@ -413,19 +337,15 @@ String *build_project(Arena *global_str_arena) {
 			shared_lib = string_trim(conf->arena, shared_libs);
 		}
 	} else {
+		Vector(String *) quoted_shared = vector_init(conf->arena);
 		for (int i = 0; i < length(shared_file_arr); i++) {
-			if (string_len(shared_lib) == 0) {
-				shared_lib = string_concat_cstr(
-					conf->arena, 3, "\"", at(char *, shared_file_arr, i), "\"");
-			} else {
-				shared_lib = string_concat_cstr(
-					conf->arena, 4, string(shared_lib), " \"",
-					at(char *, shared_file_arr, i), "\"");
-			}
+			append(quoted_shared,
+				   string_concat_cstr(conf->arena, 3, "\"",
+									  at(shared_file_arr, i), "\""));
 		}
+		shared_lib = string_join(conf->arena, quoted_shared, " ");
 	}
-
-	String *headers = string_trim(conf->arena, header_list);
+	const char *shared_lib_str = shared_lib ? string(shared_lib) : "";
 
 #if defined(_WIN32)
 	const char *base_compile_flags = "-c\n-MMD\n-MP\n";
@@ -435,11 +355,9 @@ String *build_project(Arena *global_str_arena) {
 
 	String *response_content = string_concat_cstr(
 		conf->arena, 4, base_compile_flags, string(headers), "\n",
-		string(join_vec_to_str(conf->arena, conf->flags,
-							   string_from(conf->arena, "\n"))));
+		string(join_vec_to_str(conf->arena, conf->flags, "\n")));
 
-	String *lib_links = join_vec_to_str(conf->arena, conf->lib_links,
-										string_from(conf->arena, "\n"));
+	String *lib_links = join_vec_to_str(conf->arena, conf->lib_links, "\n");
 
 	create_append_err = create_append_file("./build/.cache/compile.rsp",
 										   string(response_content));
@@ -456,30 +374,21 @@ String *build_project(Arena *global_str_arena) {
 	}
 
 	bool require_version_update = false;
-	String *obj_files_list = string_from(conf->arena, "");
+	Vector(String *) obj_files_vec = vector_init(conf->arena);
 	char *current_version = read_current_version_from_file(conf->arena);
 
 	for (int i = 0; i < length(src_file_arr); i++) {
-		const char *base_name =
-			get_filename_without_path(at(char *, src_file_arr, i));
-		char *full_path_src =
-			arena_strdup(conf->arena, at(char *, src_file_arr, i));
+		char *full_path_src = at(src_file_arr, i);
+		const char *base_name = get_filename_without_path(full_path_src);
 		String *obj_file = string_concat_cstr(conf->arena, 3, "./build/.cache/",
 											  base_name, ".o");
 		String *d_file = string_concat_cstr(conf->arena, 3, "./build/.cache/",
 											base_name, ".d");
 
-		if (string_len(obj_files_list) == 0) {
-			obj_files_list = string_concat_cstr(conf->arena, 3, "\"",
-												string(obj_file), "\"");
-		} else {
-			obj_files_list =
-				string_concat_cstr(conf->arena, 4, string(obj_files_list),
-								   " \"", string(obj_file), "\"");
-		}
+		append(obj_files_vec, string_concat_cstr(conf->arena, 3, "\"",
+												 string(obj_file), "\""));
 
-		long long src_time =
-			get_file_modified_time(at(char *, src_file_arr, i));
+		long long src_time = get_file_modified_time(full_path_src);
 		long long obj_time = get_file_modified_time(string(obj_file));
 
 		bool need_recompile = false;
@@ -497,9 +406,8 @@ String *build_project(Arena *global_str_arena) {
 			char *compilation_command = string(string_concat_cstr(
 				conf->arena, 8, string(conf->compiler_path),
 				" \"-DPROJECT_VERSION=\\\"", string(conf->version),
-				"\\\"\" @./build/.cache/compile.rsp \"",
-				at(char *, src_file_arr, i), "\" -o \"", string(obj_file),
-				"\""));
+				"\\\"\" @./build/.cache/compile.rsp \"", full_path_src,
+				"\" -o \"", string(obj_file), "\""));
 			cmd_err = system(compilation_command);
 			if (cmd_err) {
 				fprintf(stderr, "Error encountered at compilation\n");
@@ -509,6 +417,10 @@ String *build_project(Arena *global_str_arena) {
 			printf("[✓] Compiled '%s'\n", full_path_src);
 		}
 	}
+
+	String *obj_files_list = length(obj_files_vec) > 0
+								 ? string_join(conf->arena, obj_files_vec, " ")
+								 : string_from(conf->arena, "");
 
 #if defined(_WIN32)
 	const char *exe_ext = ".exe";
@@ -526,33 +438,28 @@ String *build_project(Arena *global_str_arena) {
 	const char *objs_arg = "./build/.cache/*.o";
 #endif
 
-	const char *link_objs =
-		(string_len(stat_lib) == 0 && length(stat_file_arr) == 0)
-			? string(obj_files_list)
-			: objs_arg;
+	bool has_stat_libs = (stat_lib != NULL && string_len(stat_lib) > 0) ||
+						 length(stat_file_arr) > 0;
+	const char *link_objs = has_stat_libs ? objs_arg : string(obj_files_list);
 
 	if (conf->executable) {
-		output = string_concat_cstr(global_str_arena, 3, "./build/",
-									string(conf->project_name), exe_ext);
+		String *target_path = string_concat_cstr(
+			conf->arena, 3, "./build/", string(conf->project_name), exe_ext);
 
 		cmd_err = system(string(string_concat_cstr(
 			conf->arena, 8, string(conf->compiler_path), " ", link_objs, " ",
-			string(shared_lib), " -o \"", string(output),
+			shared_lib_str, " -o \"", string(target_path),
 			"\" @./build/.cache/lib_links.rsp")));
 
 		if (cmd_err) {
 			fprintf(stderr, "Error encountered while generating executable\n");
-			output = string_from(global_str_arena, "");
 			goto CLEANUP;
 		}
+		output = string_clone(global_str_arena, target_path);
 		printf("[✓] Executable generated\n");
 	} else {
-		output = string_concat_cstr(global_str_arena, 2, "./build/",
-									string(conf->project_name));
-
-		if (STR_CMP(string(archiever), "") == 0) {
+		if (string_len(archiever) == 0) {
 			printf("[x] No archiever found!\n");
-			output = string_from(global_str_arena, "");
 			goto CLEANUP;
 		}
 
@@ -565,7 +472,6 @@ String *build_project(Arena *global_str_arena) {
 			if (mkdir_err && errno != EEXIST) {
 				fprintf(stderr, "Error encountered while generating "
 								"library directories\n");
-				output = string_from(global_str_arena, "");
 				goto CLEANUP;
 			}
 		}
@@ -579,7 +485,6 @@ String *build_project(Arena *global_str_arena) {
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating shared library\n");
-			output = string_from(global_str_arena, "");
 			goto CLEANUP;
 		}
 
@@ -604,12 +509,11 @@ String *build_project(Arena *global_str_arena) {
 		if (cmd_err) {
 			fprintf(stderr,
 					"Error encountered while generating static library\n");
-			output = string_from(global_str_arena, "");
 			goto CLEANUP;
 		}
 
 		for (int i = 0; i < length(header_vec); i++) {
-			char *src_path = at(char *, header_vec, i);
+			char *src_path = at(header_vec, i);
 			const char *file_name = get_filename_without_path(src_path);
 			char *dest_path_1 = string(string_concat_cstr(
 				conf->arena, 2, "./build/static/include/", file_name));
@@ -622,11 +526,12 @@ String *build_project(Arena *global_str_arena) {
 			}
 			if (copy_err) {
 				fprintf(stderr, "Error encountered while copying headers\n");
-				output = string_from(global_str_arena, "");
 				goto CLEANUP;
 			}
 		}
 
+		output = string_concat_cstr(global_str_arena, 2, "./build/",
+									string(conf->project_name));
 		printf("[+] Libraries generated\n");
 	}
 	if (require_version_update) {
@@ -634,21 +539,17 @@ String *build_project(Arena *global_str_arena) {
 	}
 
 CLEANUP:
-	vector_free(&header_vec);
-	vector_free(&src_file_arr);
-	vector_free(&stat_file_arr);
-	vector_free(&shared_file_arr);
-	vector_free(&static_lib_arr);
-	vector_free(&shared_lib_arr);
-	vector_free(&src_arr);
-	vector_free(&header_arr);
 	config_free(conf);
-	return output;
+	return output ? output : string_from(global_str_arena, "");
 }
 
 void run_project(Arena *global_str_arena) {
-	char *path_str = string(build_project(global_str_arena));
+	String *target = build_project(global_str_arena);
+	if (!target || string_len(target) == 0) {
+		return;
+	}
 
+	char *path_str = string(target);
 	char command[4096];
 
 #if defined(_WIN32)

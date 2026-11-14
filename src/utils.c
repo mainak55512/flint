@@ -9,11 +9,6 @@ bool is_platform_element(char *entry, char **out_flag) {
 		return true;
 	}
 
-	// if (colon == NULL || entry[0] == '-') {
-	// 	*out_flag = entry;
-	// 	return true;
-	// }
-
 	size_t os_len = (size_t)(colon - entry);
 
 	if (entry[0] == '-' || os_len <= 1) {
@@ -33,31 +28,25 @@ bool is_platform_element(char *entry, char **out_flag) {
 	return false;
 }
 
-String *join_vec_to_str(Arena *arena, Vector *v, String *sep) {
-	String *output = NULL;
+String *join_vec_to_str(Arena *arena, Vector(String *) v, const char *sep) {
+	Vector(String *) filtered = vector_init(arena);
 
 	for (int i = 0; i < length(v); i++) {
-		String *item = at(String *, v, i);
+		String *item = at(v, i);
 		char *raw_flag = NULL;
 
 		if (!is_platform_element(string(item), &raw_flag)) {
 			continue;
 		}
 
-		String *flag_str = string_from(arena, raw_flag);
-
-		if (output == NULL) {
-			output = flag_str;
-		} else {
-			output = string_concat(arena, 3, output, sep, flag_str);
-		}
+		append(filtered, string_from(arena, raw_flag));
 	}
 
-	if (output == NULL) {
+	if (length(filtered) == 0) {
 		return string_from(arena, "");
 	}
 
-	return output;
+	return string_join(arena, filtered, sep);
 }
 
 const char *get_filename_without_path(const char *path) {
@@ -78,40 +67,18 @@ const char *get_filename_without_path(const char *path) {
 	return filename;
 }
 
-Vector *string_split(Arena *arena, String *str, char sep) {
-	Vector *lines = vector_init(String *);
-	char *cstr = string(str);
-	int len = string_len(str);
-	int start = 0;
-
-	for (int i = 0; i < len; i++) {
-		if (cstr[i] == sep) {
-			String *line = string_sub(arena, str, start, i);
-			append(String *, lines, line);
-			start = i + 1;
-		}
-	}
-
-	if (start <= len) {
-		String *line = string_sub(arena, str, start, len);
-		append(String *, lines, line);
-	}
-
-	return lines;
-}
-
-Vector *remove_excludes(Vector *collected, Vector *excludes) {
-
+Vector(String *) remove_excludes(Arena *arena, Vector(String *) collected,
+								 Vector(String *) excludes) {
 	if (!excludes) {
 		return collected;
 	}
 
-	Vector *vec = vector_init(String *);
+	Vector(String *) vec = vector_init(arena);
 	for (int i = 0; i < length(collected); i++) {
-		char *item_str = string(at(String *, collected, i));
+		char *item_str = string(at(collected, i));
 		bool present = false;
 		for (int j = 0; j < length(excludes); j++) {
-			char *raw_entry = string(at(String *, excludes, j));
+			char *raw_entry = string(at(excludes, j));
 			char *excluded = NULL;
 			if (!is_platform_element(raw_entry, &excluded)) {
 				continue;
@@ -136,16 +103,15 @@ Vector *remove_excludes(Vector *collected, Vector *excludes) {
 		}
 
 		if (!present) {
-			append(String *, vec, at(String *, collected, i));
+			append(vec, at(collected, i));
 		}
 	}
 
-	vector_free(&collected);
 	return vec;
 }
 
-Vector *string_split_lines(Arena *arena, String *str) {
-	return string_split(arena, str, '\n');
+Vector(String *) string_split_lines(Arena *arena, String *str) {
+	return string_split(arena, str, "\n");
 }
 
 int check_project_lang(char *lang) {
@@ -323,54 +289,33 @@ char *get_tag_from_hash(Arena *arena, const char *target_dir,
 	return arena_strdup(arena, "unknown");
 }
 
-bool set_contains(Vector *v, char *elem) {
-
+bool set_contains(Vector(const char *) v, const char *elem) {
 	for (int i = 0; i < length(v); i++) {
-		if (STR_CMP(at(char *, v, i), elem) == 0) {
+		if (STR_CMP(at(v, i), elem) == 0) {
 			return true;
 		}
 	}
 	return false;
 }
 
-void set_add(Vector *v, char *elem) {
+void set_add(Vector(const char *) v, const char *elem) {
 	if (!set_contains(v, elem)) {
-		append(char *, v, elem);
+		append(v, elem);
 	}
 }
 
-// bool check_if_dep_path(const char *str) {
-// 	size_t len_prefix = strlen("deps");
-// 	size_t len_str = strlen(str);
-
-// 	if (len_str < len_prefix) {
-// 		return false;
-// 	}
-
-// 	return strncmp(str, "deps", len_prefix) == 0;
-// }
-
-bool starts_with(char *str, char *prefix) {
-	char *colon = strchr(str, ':');
-	if (colon) {
-		char *path = colon + 1;
-		return strncmp(path, prefix, strlen(prefix)) == 0;
-	}
-	return strncmp(str, prefix, strlen(prefix)) == 0;
-}
-
-bool set_contains_str(Vector *v, String *elem) {
+bool set_contains_str(Vector(String *) v, String *elem) {
 	for (int i = 0; i < length(v); i++) {
-		if (STR_CMP(string(at(String *, v, i)), string(elem)) == 0) {
+		if (STR_CMP(string(at(v, i)), string(elem)) == 0) {
 			return true;
 		}
 	}
 	return false;
 }
 
-void set_add_str(Vector *v, String *elem) {
+void set_add_str(Vector(String *) v, String *elem) {
 	if (!set_contains_str(v, elem)) {
-		append(String *, v, elem);
+		append(v, elem);
 	}
 }
 
@@ -382,16 +327,16 @@ String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key) {
 	return str ? string_from(arena, (char *)str) : NULL;
 }
 
-Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key) {
+Vector(String *) parse_string_array(Arena *arena, yyjson_val *obj, char *key) {
 	yyjson_val *arr = yyjson_obj_get(obj, key);
-	Vector *target_vec = vector_init(String *);
+	Vector(String *) target_vec = vector_init(arena);
 	size_t idx, max;
 	yyjson_val *val;
 	if (yyjson_is_arr(arr)) {
 		yyjson_arr_foreach(arr, idx, max, val) {
 			const char *s = yyjson_get_str(val);
 			if (s)
-				append(String *, target_vec, string_from(arena, (char *)s));
+				append(target_vec, string_from(arena, (char *)s));
 		}
 	}
 	return target_vec;

@@ -3,9 +3,9 @@
 
 #include <arena.h>
 #include <cmap.h>
-#include <container.h>
 #include <cstring.h>
 #include <ctype.h>
+#include <cvector.h>
 #include <errno.h>
 #include <mongoose.h>
 #include <stdbool.h>
@@ -83,12 +83,12 @@ typedef struct {
 	String *version;
 	String *hash;
 	String *remote;
-	Vector *flags;
-	Vector *lib_links;
-	Vector *excludes;
-	Vector *exclude_dirs;
-	Vector *exclude_exception;
-	Cmap *tmpl;
+	Vector(String *) flags;
+	Vector(String *) lib_links;
+	Vector(String *) excludes;
+	Vector(String *) exclude_dirs;
+	Vector(String *) exclude_exception;
+	Cmap(String *) tmpl;
 } Sync_config;
 
 typedef struct {
@@ -97,14 +97,14 @@ typedef struct {
 	String *compiler_path;
 	String *version;
 	bool executable;
-	Vector *flags;
-	Vector *lib_links;
-	Vector *excludes;
-	Vector *exclude_dirs;
-	Cmap *tmpl;
-	Cmap *dependencies;
-	Vector *exclude_exception;
-	Cmap *sync;
+	Vector(String *) flags;
+	Vector(String *) lib_links;
+	Vector(String *) excludes;
+	Vector(String *) exclude_dirs;
+	Cmap(String *) tmpl;
+	Cmap(Dependency *) dependencies;
+	Vector(String *) exclude_exception;
+	Cmap(Sync_config *) sync;
 	Arena *arena;
 } Config;
 
@@ -121,9 +121,8 @@ void create_my_build_config(char *config_file_path, char *project_name,
 							bool isExec);
 int check_project_lang(char *lang);
 String *build_project(Arena *global_str_arena);
-bool starts_with(char *str, char *prefix);
-bool set_contains_str(Vector *v, String *elem);
-void set_add_str(Vector *v, String *elem);
+bool set_contains_str(Vector(String *) v, String *elem);
+void set_add_str(Vector(String *) v, String *elem);
 char *safe_str(String *s);
 Config *config_init();
 Sync_config *read_sync_config(Arena *arena, yyjson_val *val);
@@ -132,20 +131,19 @@ void config_free(Config *conf);
 void read_flint_composition(char *composition_path, Config *conf);
 void write_flint_composition(char *composition_path, Config *conf);
 String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key);
-Vector *parse_string_array(Arena *arena, yyjson_val *obj, char *key);
-Cmap *read_lock_file();
-bool lock_contains(Cmap *lock, char *libURL);
-void write_lock_file(Cmap *lock);
+Vector(String *) parse_string_array(Arena *arena, yyjson_val *obj, char *key);
+Cmap(Dependency *) read_lock_file(Arena *arena);
+bool lock_contains(Arena *arena, Cmap(Dependency *) lock, char *libURL);
+void write_lock_file(Cmap(Dependency *) lock);
 
-bool set_contains(Vector *v, char *elem);
-void set_add(Vector *v, char *elem);
+bool set_contains(Vector(const char *) v, const char *elem);
+void set_add(Vector(const char *) v, const char *elem);
 Dependency *clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
 int init_project();
 String *collect_src_files(Arena *str_arena, String *path);
 String *collect_files(Arena *str_arena, String *path, String *type);
-Vector *string_split(Arena *arena, String *str, char sep);
-Vector *string_split_lines(Arena *arena, String *str);
+Vector(String *) string_split_lines(Arena *arena, String *str);
 String *get_current_working_dir(Arena *arena);
 int generate_compile_commands(Config *conf);
 char *get_repo_name(Arena *arena, const char *git_url);
@@ -157,7 +155,7 @@ char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash);
 Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash);
 void add_lib(char *libURL);
-void remove_library_partial(char *libURL);
+void remove_library_partial(Arena *arena, char *libURL);
 void remove_library(char *repo_name);
 void run_project(Arena *global_str_arena);
 void sync_lib(char *elem);
@@ -171,32 +169,34 @@ int copy_file(const char *src_path, const char *dest_path);
 bool file_exists(const char *file_name);
 void add_local_lib(int lib_count, char **lib_link);
 void add_flag(int lib_count, char **lib_link);
-// bool check_if_dep_path(const char *str);
 int remove_directory(Arena *arena, const char *path);
 char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);
-Vector *remove_excludes(Vector *collected, Vector *excludes);
+Vector(String *) remove_excludes(Arena *arena, Vector(String *) collected,
+								 Vector(String *) excludes);
 void list_deps();
 void expand_line(const char *src, FILE *out, yyjson_val *vars);
 int gen_header_from_tmpl(const char *in_path, const char *out_path);
 
-void traverse_dir(Arena *arena, String *dir_path, Vector *src_dirs,
-				  Vector *hdr_dirs, Vector *static_libs, Vector *shared_libs,
-				  Vector *excludes_dirs);
+void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
+				  Vector(const char *) hdr_dirs,
+				  Vector(const char *) static_libs,
+				  Vector(const char *) shared_libs,
+				  Vector(String *) excludes_dirs);
 
-void get_src_vec(Config *conf, Vector *src_arr, Vector *source_files,
-				 String *cwd);
-void get_header_vec(Config *conf, Vector *header_arr, Vector *header_vec,
-					String *cwd);
-void get_stat_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
-					  String *cwd);
-void get_shared_lib_vec(Config *conf, Vector *src_arr, Vector *source_files,
-						String *cwd);
+void get_src_vec(Config *conf, Vector(const char *) src_arr,
+				 Vector(char *) source_files, String *cwd);
+void get_header_vec(Config *conf, Vector(const char *) header_arr,
+					Vector(char *) header_vec, String *cwd);
+void get_stat_lib_vec(Config *conf, Vector(const char *) src_arr,
+					  Vector(char *) source_files, String *cwd);
+void get_shared_lib_vec(Config *conf, Vector(const char *) src_arr,
+						Vector(char *) source_files, String *cwd);
 void clear_cache();
 
-void fetch_library(Config *current_config, char *libURL, char *hash, Cmap *lock,
-				   bool sync);
-String *join_vec_to_str(Arena *arena, Vector *v, String *sep);
+void fetch_library(Config *current_config, char *libURL, char *hash,
+				   Cmap(Dependency *) lock, bool sync);
+String *join_vec_to_str(Arena *arena, Vector(String *) v, const char *sep);
 bool is_platform_element(char *entry, char **out_flag);
 Sync_config *get_remote_composition(Arena *arena, char *fragment);
 
