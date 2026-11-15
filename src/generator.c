@@ -6,10 +6,10 @@ typedef struct {
 	InputType input_type;
 	union {
 		char *str;
-		Vector *arr;
+		Vector(char *) arr;
 	} source_path;
 	char *output_path;
-	Cmap *config;
+	Cmap(char *) config;
 } Generator;
 
 char *arena_strdup(Arena *arena, const char *str) {
@@ -34,15 +34,6 @@ Generator *init_generator(Arena *arena) {
 	return gen;
 }
 
-void free_generator(Generator *gen) {
-	if (gen->config) {
-		map_free(gen->config);
-	}
-	if (gen->input_type == INPUT_ARRAY) {
-		vector_free(&gen->source_path.arr);
-	}
-}
-
 void parse_generators(Arena *arena, Generator *gen, yyjson_val *val) {
 	yyjson_val *output = yyjson_obj_get(val, "output");
 	if (!output)
@@ -60,13 +51,13 @@ void parse_generators(Arena *arena, Generator *gen, yyjson_val *val) {
 			gen->source_path.str = arena_strdup(arena, yyjson_get_str(source));
 		} else if (yyjson_is_arr(source)) {
 			gen->input_type = INPUT_ARRAY;
-			gen->source_path.arr = vector_init(char *);
+			gen->source_path.arr = vector_init(arena);
 
 			size_t idx, max;
 			yyjson_val *element;
 			yyjson_arr_foreach(source, idx, max, element) {
 				if (yyjson_is_str(element)) {
-					append(char *, gen->source_path.arr,
+					append(gen->source_path.arr,
 						   arena_strdup(arena, yyjson_get_str(element)));
 				}
 			}
@@ -75,7 +66,7 @@ void parse_generators(Arena *arena, Generator *gen, yyjson_val *val) {
 
 	yyjson_val *config = yyjson_obj_get(val, "config");
 	if (config) {
-		Cmap *config_map = map_init();
+		Cmap(char *) config_map = map_init(arena);
 		size_t idx, max;
 		yyjson_val *element, *key;
 		yyjson_obj_foreach(config, idx, max, key, element) {
