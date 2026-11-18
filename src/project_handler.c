@@ -1,6 +1,7 @@
+#include "flint_err.h"
 #include <flint.h>
 
-int check_available_tool(const char *cmd) {
+flint_res_bool_t check_available_tool(const char *cmd) {
 	const char *path = getenv("PATH");
 	const char *separator;
 	char candidate[4096];
@@ -13,17 +14,23 @@ int check_available_tool(const char *cmd) {
 	) {
 #if defined(_WIN32)
 		if (_access(cmd, 0) == 0)
-			return 1;
+			return FLINT_OK_VAL(flint_res_bool_t, true);
 		char test_path[4096];
 		snprintf(test_path, sizeof(test_path), "%s.exe", cmd);
-		return _access(test_path, 0) == 0;
+		if (_access(test_path, 0) == 0)
+			return FLINT_OK_VAL(flint_res_bool_t, true);
+		else
+			return FLINT_ERR_VAL(flint_res_bool_t, FLINT_ERR_TOOL_UNAVAILABLE);
 #else
-		return access(cmd, X_OK) == 0;
+		if (access(cmd, X_OK) == 0)
+			return FLINT_OK_VAL(flint_res_bool_t, true);
+		else
+			return FLINT_ERR_VAL(flint_res_bool_t, FLINT_ERR_TOOL_UNAVAILABLE);
 #endif
 	}
 
 	if (!path || cmd_len == 0)
-		return 0;
+		return FLINT_ERR_VAL(flint_res_bool_t, FLINT_ERR_TOOL_UNAVAILABLE);
 
 	while (*path) {
 		separator = strchr(path,
@@ -44,38 +51,45 @@ int check_available_tool(const char *cmd) {
 
 #if defined(_WIN32)
 			if (_access(candidate, 0) == 0)
-				return 1;
+				return FLINT_OK_VAL(flint_res_bool_t, true);
 
 			char test_path[4096];
 			snprintf(test_path, sizeof(test_path), "%s.exe", candidate);
 			if (_access(test_path, 0) == 0)
-				return 1;
+				return FLINT_OK_VAL(flint_res_bool_t, true);
 #else
 			if (access(candidate, X_OK) == 0)
-				return 1;
+				return FLINT_OK_VAL(flint_res_bool_t, true);
 #endif
 		}
 		if (!separator)
 			break;
 		path = separator + 1;
 	}
-	return 0;
+	return FLINT_ERR_VAL(flint_res_bool_t, FLINT_ERR_TOOL_UNAVAILABLE);
 }
 
-String *get_archiever(Arena *arena) {
-	if (check_available_tool("llvm-ar")) {
-		return string_from(arena, "llvm-ar");
-	} else if (check_available_tool("ar")) {
-		return string_from(arena, "ar");
+flint_res_string_t get_archiever(Arena *arena) {
+	flint_res_bool_t llvm_ar = check_available_tool("llvm-ar");
+	if (llvm_ar.err == FLINT_OK && llvm_ar.value == true) {
+		return FLINT_OK_VAL(flint_res_string_t, string_from(arena, "llvm-ar"));
+	}
+
+	flint_res_bool_t ar = check_available_tool("ar");
+	if (ar.err == FLINT_OK && ar.value == true) {
+		return FLINT_OK_VAL(flint_res_string_t, string_from(arena, "ar"));
 	}
 #if defined(_WIN32)
-	else if (check_available_tool("llvm-lib")) {
-		return string_from(arena, "llvm-lib");
-	} else if (check_available_tool("lib")) {
-		return string_from(arena, "lib");
+	flint_res_bool_t llvm_lib = check_available_tool("llvm-lib");
+	if (llvm_lib.err == FLINT_OK &&llvm_lib.value = true) {
+		return FLINT_OK_VAL(flint_res_string_t, string_from(arena, "llvm-lib"));
+	}
+	flint_res_bool_t lib = check_available_tool("lib");
+	if (lib.err == FLINT_OK && lib.value == true) {
+		return FLINT_OK_VAL(flint_res_string_t, string_from(arena, "lib"));
 	}
 #endif
-	return string_from(arena, "");
+	return FLINT_ERR_VAL(flint_res_string_t, FLINT_ERR_ARCHIVER_UNAVAILABLE);
 }
 
 int init_project() {
@@ -105,6 +119,7 @@ int init_project() {
 		conf->compiler_path = string_from(conf->arena, "gcc");
 	}
 
+	/*
 	if (!check_available_tool(string(conf->compiler_path))) {
 		fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
 				string(conf->compiler_path));
@@ -131,7 +146,43 @@ int init_project() {
 		ret = 1;
 		goto CLEANUP;
 	}
+	*/
+	flint_res_bool_t compiler =
+		check_available_tool(string(conf->compiler_path));
+	if (compiler.err != FLINT_OK) {
+		// fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
+		// 		string(conf->compiler_path));
+		flint_log_error("Compile availability check", compiler.err);
+		ret = 1;
+		goto CLEANUP;
+	}
+	flint_res_bool_t git = check_available_tool("git");
+	if (git.err != FLINT_OK) {
+		// fprintf(stderr, "[!] Required tool 'git' was not found in PATH.\n");
+		flint_log_error("GIT availability check", git.err);
+		ret = 1;
+		goto CLEANUP;
+	}
 
+	if (get_archiever(conf->arena).err != FLINT_OK) {
+		flint_log_error("Archiver availability check",
+						FLINT_ERR_ARCHIVER_UNAVAILABLE);
+		ret = 1;
+		goto CLEANUP;
+	}
+
+	// 	if (check_available_tool("ar").err != FLINT_OK &&
+	// 		check_available_tool("llvm-ar").err != FLINT_OK
+	// #if defined(_WIN32)
+	// 		&& check_available_tool("llvm-lib").err != FLINT_OK &&
+	// 		check_available_tool("lib").err != FLINT_OK
+	// #endif
+	// 	) {
+	// 		flint_log_error("Archiver availability check",
+	// 						FLINT_ERR_ARCHIVER_UNAVAILABLE);
+	// 		ret = 1;
+	// 		goto CLEANUP;
+	// 	}
 	if (!directory_exists("./deps")) {
 		dir_create_status = MAKE_DIR("./deps");
 		if (dir_create_status != 0) {
@@ -271,12 +322,28 @@ String *build_project(Arena *global_str_arena) {
 	get_shared_lib_vec(conf, shared_lib_arr, shared_file_arr, cwd);
 
 	String *stat_lib = NULL;
-	String *archiever = get_archiever(conf->arena);
-	const char *ar_tool =
-		(string_len(archiever) > 0 && STR_CMP(string(archiever), "lib") != 0 &&
-		 STR_CMP(string(archiever), "llvm-lib") != 0)
-			? string(archiever)
-			: (check_available_tool("llvm-ar") ? "llvm-ar" : "ar");
+	flint_res_string_t archiever = get_archiever(conf->arena);
+	char *ar_tool = NULL;
+	if (archiever.err == FLINT_OK) {
+		ar_tool = string(archiever.value);
+	}
+	// if (archiever.err == FLINT_OK) {
+	// 	if (STR_CMP(string(archiever.value), "lib") != 0 &&
+	// 	 STR_CMP(string(archiever.value), "llvm-lib") != 0) {
+	// 		ar_tool = string(archiever.value);
+	// 	} else {
+	// 		flint_res_bool_t available_archiver_for_posix =
+	// check_available_tool("llvm-ar"); 		if
+	// (available_archiver_for_posix.err
+	// ==
+	// FLINT_OK) { 			ar_tool = "llvm-ar"; 		} else { ar_tool = "ar";
+	// 		}
+	// 	}
+	// }
+	// =
+	// 	(string_len(archiever.value) > 0 && )
+	// 		? string(archiever.value)
+	// 		: (check_available_tool("llvm-ar") ? "llvm-ar" : "ar");
 
 	if (length(stat_file_arr) == 0) {
 		if (directory_exists("./static")) {
@@ -458,8 +525,11 @@ String *build_project(Arena *global_str_arena) {
 		output = string_clone(global_str_arena, target_path);
 		printf("[✓] Executable generated\n");
 	} else {
-		if (string_len(archiever) == 0) {
-			printf("[x] No archiever found!\n");
+		if (archiever.err != FLINT_OK) {
+			// if (string_len(archiever) == 0) {
+			// printf("[x] No archiever found!\n");
+			flint_log_error("Archiver not found",
+							FLINT_ERR_ARCHIVER_UNAVAILABLE);
 			goto CLEANUP;
 		}
 
@@ -503,8 +573,9 @@ String *build_project(Arena *global_str_arena) {
 		}
 #else
 		cmd_err = system(string(string_concat_cstr(
-			conf->arena, 5, string(archiever), " rcs \"./build/static/lib/lib",
-			string(conf->project_name), ".a\" ", link_objs)));
+			conf->arena, 5, string(archiever.value),
+			" rcs \"./build/static/lib/lib", string(conf->project_name),
+			".a\" ", link_objs)));
 #endif
 		if (cmd_err) {
 			fprintf(stderr,

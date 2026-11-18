@@ -1,12 +1,10 @@
 #ifndef FLINT_H
 #define FLINT_H
 
-#include <arena.h>
-#include <cmap.h>
-#include <cstring.h>
+#include <arstd.h>
 #include <ctype.h>
-#include <cvector.h>
 #include <errno.h>
+#include <flint_err.h>
 #include <mongoose.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -114,6 +112,14 @@ typedef struct {
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION unknown
 #endif
+
+FLINT_DEFINE_RESULT(int, flint_res_int_t);
+FLINT_DEFINE_RESULT(size_t, flint_res_size_t);
+FLINT_DEFINE_RESULT(bool, flint_res_bool_t);
+FLINT_DEFINE_RESULT(char *, flint_res_str_t);
+FLINT_DEFINE_RESULT(const char *, flint_res_cstr_t);
+FLINT_DEFINE_RESULT(void *, flint_res_ptr_t);
+FLINT_DEFINE_RESULT(String *, flint_res_string_t);
 
 int create_append_file(char *file_path, char *content);
 void create_my_build_config(char *config_file_path, char *project_name,
