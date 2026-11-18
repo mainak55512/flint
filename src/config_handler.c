@@ -234,7 +234,7 @@ void write_flint_composition(char *composition_path, Config *conf) {
 		yyjson_mut_write_file(composition_path, doc, flg, NULL, &err);
 
 	if (success) {
-		printf("[✓] Composition created/updated...\n");
+		flint_info("Composition created/updated...");
 	} else {
 		printf("[x] Failed to write JSON: %s (code: %u)\n", err.msg, err.code);
 	}

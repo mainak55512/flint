@@ -1,4 +1,4 @@
-#include "flint_err.h"
+#include "flint_log.h"
 #include <flint.h>
 
 flint_res_bool_t check_available_tool(const char *cmd) {
@@ -95,25 +95,25 @@ flint_res_string_t get_archiever(Arena *arena) {
 int init_project() {
 	int ret = 0, dir_create_status = 0, file_create_status = 0;
 	if (file_exists("./composition.json")) {
-		printf("[!] Flint Chert already initiated!\n");
+		flint_warn("Flint Chert already initiated!");
 		return ret;
 	}
 	Config *conf = config_init();
 
-	printf("[+] Bootstrapping New Project...\n");
-	printf("[?] Project Name: ");
+	flint_info("Bootstrapping New Project...");
+	flint_prompt("Project Name: ");
 	conf->project_name = string_trim(conf->arena, string_get(conf->arena));
 
-	printf("[?] Language (c/c++) [default: c]: ");
+	flint_prompt("Language (c/c++) [default: c]: ");
 	conf->project_language = string_trim(conf->arena, string_get(conf->arena));
 	if (string_len(conf->project_language) == 0) {
 		conf->project_language = string_from(conf->arena, "c");
 	}
 
-	printf("[?] Project type (exec/lib) [default: exec]: ");
+	flint_prompt("Project type (exec/lib) [default: exec]: ");
 	String *project_type = string_trim(conf->arena, string_get(conf->arena));
 
-	printf("[?] Compiler path [default: gcc]: ");
+	flint_prompt("Compiler path [default: gcc]: ");
 	conf->compiler_path = string_trim(conf->arena, string_get(conf->arena));
 	if (string_len(conf->compiler_path) == 0) {
 		conf->compiler_path = string_from(conf->arena, "gcc");
@@ -152,21 +152,21 @@ int init_project() {
 	if (compiler.err != FLINT_OK) {
 		// fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
 		// 		string(conf->compiler_path));
-		flint_log_error("Compile availability check", compiler.err);
+		flint_error("Compile availability check", compiler.err);
 		ret = 1;
 		goto CLEANUP;
 	}
 	flint_res_bool_t git = check_available_tool("git");
 	if (git.err != FLINT_OK) {
 		// fprintf(stderr, "[!] Required tool 'git' was not found in PATH.\n");
-		flint_log_error("GIT availability check", git.err);
+		flint_error("GIT availability check", git.err);
 		ret = 1;
 		goto CLEANUP;
 	}
 
 	if (get_archiever(conf->arena).err != FLINT_OK) {
-		flint_log_error("Archiver availability check",
-						FLINT_ERR_ARCHIVER_UNAVAILABLE);
+		flint_error("Archiver availability check",
+					FLINT_ERR_ARCHIVER_UNAVAILABLE);
 		ret = 1;
 		goto CLEANUP;
 	}
@@ -246,8 +246,8 @@ int init_project() {
 
 	conf->version = string_from(conf->arena, "unknown");
 	write_flint_composition("composition.json", conf);
-	printf("[✓] Flint project '%s' successfully initiated\n",
-		   string(conf->project_name));
+	flint_success("Flint project '%s' successfully initiated",
+				  string(conf->project_name));
 	generate_compile_commands(conf);
 
 CLEANUP:
@@ -261,7 +261,7 @@ String *build_project(Arena *global_str_arena) {
 	Config *conf = config_init();
 	read_flint_composition("composition.json", conf);
 
-	printf("[+] Gathering Resources\n");
+	flint_info("Gathering Resources");
 	Vector(const char *) header_arr = vector_init(conf->arena);
 	Vector(const char *) src_arr = vector_init(conf->arena);
 	Vector(const char *) static_lib_arr = vector_init(conf->arena);
@@ -288,10 +288,10 @@ String *build_project(Arena *global_str_arena) {
 		set_add(header_arr, excluded);
 	}
 
-	printf("[✓] done!\n");
+	// flint_success("done!");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
 
-	printf("[+] Compilation started\n");
+	flint_info("Compilation started");
 
 	mkdir_err = MAKE_DIR("build");
 	if (mkdir_err && errno != EEXIST) {
@@ -481,7 +481,7 @@ String *build_project(Arena *global_str_arena) {
 				goto CLEANUP;
 			}
 
-			printf("[✓] Compiled '%s'\n", full_path_src);
+			flint_info("Compiled '%s'", full_path_src);
 		}
 	}
 
@@ -523,13 +523,12 @@ String *build_project(Arena *global_str_arena) {
 			goto CLEANUP;
 		}
 		output = string_clone(global_str_arena, target_path);
-		printf("[✓] Executable generated\n");
+		flint_success("Executable generated");
 	} else {
 		if (archiever.err != FLINT_OK) {
 			// if (string_len(archiever) == 0) {
 			// printf("[x] No archiever found!\n");
-			flint_log_error("Archiver not found",
-							FLINT_ERR_ARCHIVER_UNAVAILABLE);
+			flint_error("Archiver not found", FLINT_ERR_ARCHIVER_UNAVAILABLE);
 			goto CLEANUP;
 		}
 
@@ -603,7 +602,7 @@ String *build_project(Arena *global_str_arena) {
 
 		output = string_concat_cstr(global_str_arena, 2, "./build/",
 									string(conf->project_name));
-		printf("[+] Libraries generated\n");
+		flint_success("Libraries generated");
 	}
 	if (require_version_update) {
 		update_version_file(string(conf->version));

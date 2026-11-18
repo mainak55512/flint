@@ -26,8 +26,3 @@ const char *flint_err_name(flint_err_t err) {
 	}
 	return FLINT_ERR_NAMES[err];
 }
-
-void flint_log_error(const char *context, flint_err_t err) {
-	fprintf(stderr, "[ERROR] %s: %s (%d): %s\n", context, flint_err_name(err),
-			err, flint_strerror(err));
-}

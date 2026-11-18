@@ -33,6 +33,4 @@ typedef enum {
 const char *flint_strerror(flint_err_t err);
 const char *flint_err_name(flint_err_t err);
 
-void flint_log_error(const char *context, flint_err_t err);
-
 #endif // FLINT_ERR_H

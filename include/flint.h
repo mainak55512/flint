@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <flint_err.h>
+#include <flint_log.h>
 #include <mongoose.h>
 #include <stdbool.h>
 #include <stdio.h>
