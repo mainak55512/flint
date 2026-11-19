@@ -1,3 +1,4 @@
+#include "flint_err.h"
 #include <flint.h>
 
 int create_append_file(char *file_path, char *content) {
@@ -578,14 +579,15 @@ int is_path_excluded(Vector(String *) excludes_dirs, char *dir_path) {
 	return 0;
 }
 
-void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
-				  Vector(const char *) hdr_dirs,
-				  Vector(const char *) static_libs,
-				  Vector(const char *) shared_libs,
-				  Vector(String *) excludes_dirs) {
+flint_err_t
+traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
+			 Vector(const char *) hdr_dirs, Vector(const char *) static_libs,
+			 Vector(const char *) shared_libs, Vector(String *) excludes_dirs) {
+
+	flint_err_t traverse_status = FLINT_OK;
 
 	if (is_path_excluded(excludes_dirs, string(dir_path))) {
-		return;
+		return FLINT_OK;
 	}
 
 #if defined(_WIN32)
@@ -594,7 +596,7 @@ void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 		string_concat_cstr(arena, 2, string(dir_path), "/*");
 	HANDLE hFind = FindFirstFileA(string(search_pattern), &find_data);
 	if (hFind == INVALID_HANDLE_VALUE)
-		return;
+		return FLINT_OK;
 
 	do {
 		const char *d_name = find_data.cFileName;
@@ -606,8 +608,13 @@ void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 			string_concat_cstr(arena, 3, string(dir_path), "/", d_name);
 
 		if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-			traverse_dir(arena, full_path, src_dirs, hdr_dirs, static_libs,
-						 shared_libs, excludes_dirs);
+			traverse_status =
+				traverse_dir(arena, full_path, src_dirs, hdr_dirs, static_libs,
+							 shared_libs, excludes_dirs);
+			if (traverse_status != FLINT_OK) {
+				flint_error("Traverse dir", FLINT_ERR_TRAVERSAL);
+				return FLINT_ERR_TRAVERSAL;
+			}
 		} else {
 			if (is_source_file(d_name)) {
 				set_add(src_dirs, format_path(string(dir_path)));
@@ -627,7 +634,7 @@ void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 #else
 	DIR *dir = opendir(string(dir_path));
 	if (!dir)
-		return;
+		return FLINT_OK;
 
 	struct dirent *entry;
 	while ((entry = readdir(dir)) != NULL) {
@@ -644,8 +651,12 @@ void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 			continue;
 
 		if (S_ISDIR(st.st_mode)) {
-			traverse_dir(arena, full_path, src_dirs, hdr_dirs, static_libs,
-						 shared_libs, excludes_dirs);
+			traverse_status =
+				traverse_dir(arena, full_path, src_dirs, hdr_dirs, static_libs,
+							 shared_libs, excludes_dirs);
+			if (traverse_status != FLINT_OK) {
+				return FLINT_ERR_TRAVERSAL;
+			}
 		} else if (S_ISREG(st.st_mode)) {
 			if (is_source_file(entry->d_name)) {
 				set_add(src_dirs, format_path(string(dir_path)));
@@ -664,6 +675,7 @@ void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 
 	closedir(dir);
 #endif
+	return FLINT_OK;
 }
 
 void clear_cache() {

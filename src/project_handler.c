@@ -1,3 +1,4 @@
+#include "flint_err.h"
 #include "flint_log.h"
 #include <flint.h>
 
@@ -92,13 +93,20 @@ flint_res_string_t get_archiever(Arena *arena) {
 	return FLINT_ERR_VAL(flint_res_string_t, FLINT_ERR_ARCHIVER_UNAVAILABLE);
 }
 
-int init_project() {
-	int ret = 0, dir_create_status = 0, file_create_status = 0;
+flint_err_t init_project() {
+	int dir_create_status = 0, file_create_status = 0;
+	flint_err_t ret = FLINT_OK;
 	if (file_exists("./composition.json")) {
 		flint_warn("Flint Chert already initiated!");
-		return ret;
+		return FLINT_ERR_COMPOSITION_EXISTS;
 	}
-	Config *conf = config_init();
+
+	flint_res_config_t conf_wrpper = config_init();
+	if (conf_wrpper.err != FLINT_OK) {
+		flint_error("Init project", conf_wrpper.err);
+		return conf_wrpper.err;
+	}
+	Config *conf = conf_wrpper.value;
 
 	flint_info("Bootstrapping New Project...");
 	flint_prompt("Project Name: ");
@@ -119,74 +127,31 @@ int init_project() {
 		conf->compiler_path = string_from(conf->arena, "gcc");
 	}
 
-	/*
-	if (!check_available_tool(string(conf->compiler_path))) {
-		fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
-				string(conf->compiler_path));
-		ret = 1;
-		goto CLEANUP;
-	}
-	if (!check_available_tool("git")) {
-		fprintf(stderr, "[!] Required tool 'git' was not found in PATH.\n");
-		ret = 1;
-		goto CLEANUP;
-	}
-	if (!check_available_tool("ar") && !check_available_tool("llvm-ar")
-#if defined(_WIN32)
-		&& !check_available_tool("llvm-lib") && !check_available_tool("lib")
-#endif
-	) {
-#if defined(_WIN32)
-		fprintf(stderr, "[!] Required tool 'ar', 'llvm-ar', 'llvm-lib', or "
-						"'lib' was not found in PATH.\n");
-#else
-		fprintf(stderr,
-				"[!] Required tool 'ar' or 'llvm-ar' was not found in PATH.\n");
-#endif
-		ret = 1;
-		goto CLEANUP;
-	}
-	*/
 	flint_res_bool_t compiler =
 		check_available_tool(string(conf->compiler_path));
 	if (compiler.err != FLINT_OK) {
-		// fprintf(stderr, "[!] Compiler '%s' was not found in PATH.\n",
-		// 		string(conf->compiler_path));
-		flint_error("Compile availability check", compiler.err);
-		ret = 1;
+		flint_error("Init project", compiler.err);
+		ret = compiler.err;
 		goto CLEANUP;
 	}
 	flint_res_bool_t git = check_available_tool("git");
 	if (git.err != FLINT_OK) {
-		// fprintf(stderr, "[!] Required tool 'git' was not found in PATH.\n");
-		flint_error("GIT availability check", git.err);
-		ret = 1;
+		flint_error("Init project", git.err);
+		ret = git.err;
 		goto CLEANUP;
 	}
 
-	if (get_archiever(conf->arena).err != FLINT_OK) {
-		flint_error("Archiver availability check",
-					FLINT_ERR_ARCHIVER_UNAVAILABLE);
-		ret = 1;
+	flint_res_string_t archiever = get_archiever(conf->arena);
+	if (archiever.err != FLINT_OK) {
+		flint_error("Init project", archiever.err);
+		ret = archiever.err;
 		goto CLEANUP;
 	}
 
-	// 	if (check_available_tool("ar").err != FLINT_OK &&
-	// 		check_available_tool("llvm-ar").err != FLINT_OK
-	// #if defined(_WIN32)
-	// 		&& check_available_tool("llvm-lib").err != FLINT_OK &&
-	// 		check_available_tool("lib").err != FLINT_OK
-	// #endif
-	// 	) {
-	// 		flint_log_error("Archiver availability check",
-	// 						FLINT_ERR_ARCHIVER_UNAVAILABLE);
-	// 		ret = 1;
-	// 		goto CLEANUP;
-	// 	}
 	if (!directory_exists("./deps")) {
 		dir_create_status = MAKE_DIR("./deps");
 		if (dir_create_status != 0) {
-			ret = 1;
+			ret = FLINT_ERR_MKDIR;
 			goto CLEANUP;
 		}
 	}
@@ -196,7 +161,8 @@ int init_project() {
 	if (!directory_exists(code_dir)) {
 		dir_create_status = MAKE_DIR(code_dir);
 		if (dir_create_status != 0) {
-			ret = 1;
+			flint_error("Init project", FLINT_ERR_MKDIR);
+			ret = FLINT_ERR_MKDIR;
 			goto CLEANUP;
 		}
 	}
@@ -206,7 +172,8 @@ int init_project() {
 		if (!directory_exists(dirs[i])) {
 			dir_create_status = MAKE_DIR(dirs[i]);
 			if (dir_create_status != 0) {
-				ret = 1;
+				flint_error("Init project", FLINT_ERR_MKDIR);
+				ret = FLINT_ERR_MKDIR;
 				goto CLEANUP;
 			}
 		}
@@ -229,7 +196,8 @@ int init_project() {
 
 	if (!file_exists(file_name)) {
 		if (create_append_file(file_name, (char *)boilerplate) == 1) {
-			ret = 1;
+			flint_error("Init project", FLINT_ERR_MKFILE);
+			ret = FLINT_ERR_MKFILE;
 			goto CLEANUP;
 		}
 	}
@@ -239,7 +207,8 @@ int init_project() {
 
 	if (!file_exists(header_file)) {
 		if (create_append_file(header_file, "") == 1) {
-			ret = 1;
+			flint_error("Init project", FLINT_ERR_MKFILE);
+			ret = FLINT_ERR_MKFILE;
 			goto CLEANUP;
 		}
 	}
@@ -255,11 +224,30 @@ CLEANUP:
 	return ret;
 }
 
-String *build_project(Arena *global_str_arena) {
+flint_res_string_t build_project(Arena *global_str_arena) {
 	String *output = NULL;
+	flint_err_t build_project_status = FLINT_OK;
 
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+	flint_res_config_t conf_wrpper = config_init();
+	if (conf_wrpper.err != FLINT_OK) {
+		flint_error("Build project", conf_wrpper.err);
+		return FLINT_ERR_VAL(flint_res_string_t, conf_wrpper.err);
+	}
+	Config *conf = conf_wrpper.value;
+	flint_err_t config_read_status =
+		read_flint_composition("composition.json", conf);
+	if (config_read_status != FLINT_OK) {
+		flint_error("Build project", config_read_status);
+		build_project_status = config_read_status;
+		goto CLEANUP;
+	}
+
+	flint_res_string_t archiever = get_archiever(conf->arena);
+	if (archiever.err != FLINT_OK) {
+		flint_error("Build project", FLINT_ERR_ARCHIVER_UNAVAILABLE);
+		build_project_status = FLINT_ERR_ARCHIVER_UNAVAILABLE;
+		goto CLEANUP;
+	}
 
 	flint_info("Gathering Resources");
 	Vector(const char *) header_arr = vector_init(conf->arena);
@@ -272,9 +260,14 @@ String *build_project(Arena *global_str_arena) {
 	Vector(char *) stat_file_arr = vector_init(conf->arena);
 	Vector(char *) shared_file_arr = vector_init(conf->arena);
 
-	traverse_dir(conf->arena, string_from(conf->arena, "."), src_arr,
-				 header_arr, static_lib_arr, shared_lib_arr,
-				 conf->exclude_dirs);
+	build_project_status = traverse_dir(
+		conf->arena, string_from(conf->arena, "."), src_arr, header_arr,
+		static_lib_arr, shared_lib_arr, conf->exclude_dirs);
+
+	if (build_project_status != FLINT_OK) {
+		flint_error("Build project", build_project_status);
+		goto CLEANUP;
+	}
 
 	for (int i = 0; i < length(conf->exclude_exception); i++) {
 		char *raw_entry = string(at(conf->exclude_exception, i));
@@ -288,20 +281,21 @@ String *build_project(Arena *global_str_arena) {
 		set_add(header_arr, excluded);
 	}
 
-	// flint_success("done!");
 	int mkdir_err = 0, cmd_err = 0, create_append_err = 0, copy_err = 0;
 
 	flint_info("Compilation started");
 
 	mkdir_err = MAKE_DIR("build");
 	if (mkdir_err && errno != EEXIST) {
-		fprintf(stderr, "Unable to create `build` directory\n");
+		flint_error("Build project", FLINT_ERR_MKDIR);
+		build_project_status = FLINT_ERR_MKDIR;
 		goto CLEANUP;
 	}
 
 	mkdir_err = MAKE_DIR("./build/.cache");
 	if (mkdir_err && errno != EEXIST) {
-		fprintf(stderr, "Unable to create `.cache` directory\n");
+		flint_error("Build project", FLINT_ERR_MKDIR);
+		build_project_status = FLINT_ERR_MKDIR;
 		goto CLEANUP;
 	}
 
@@ -322,28 +316,7 @@ String *build_project(Arena *global_str_arena) {
 	get_shared_lib_vec(conf, shared_lib_arr, shared_file_arr, cwd);
 
 	String *stat_lib = NULL;
-	flint_res_string_t archiever = get_archiever(conf->arena);
-	char *ar_tool = NULL;
-	if (archiever.err == FLINT_OK) {
-		ar_tool = string(archiever.value);
-	}
-	// if (archiever.err == FLINT_OK) {
-	// 	if (STR_CMP(string(archiever.value), "lib") != 0 &&
-	// 	 STR_CMP(string(archiever.value), "llvm-lib") != 0) {
-	// 		ar_tool = string(archiever.value);
-	// 	} else {
-	// 		flint_res_bool_t available_archiver_for_posix =
-	// check_available_tool("llvm-ar"); 		if
-	// (available_archiver_for_posix.err
-	// ==
-	// FLINT_OK) { 			ar_tool = "llvm-ar"; 		} else { ar_tool = "ar";
-	// 		}
-	// 	}
-	// }
-	// =
-	// 	(string_len(archiever.value) > 0 && )
-	// 		? string(archiever.value)
-	// 		: (check_available_tool("llvm-ar") ? "llvm-ar" : "ar");
+	char *ar_tool = string(archiever.value);
 
 	if (length(stat_file_arr) == 0) {
 		if (directory_exists("./static")) {
@@ -370,8 +343,8 @@ String *build_project(Arena *global_str_arena) {
 					" x \"$f\"); done")));
 #endif
 				if (cmd_err) {
-					fprintf(stderr,
-							"Error encountered while adding static libs\n");
+					flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+					build_project_status = FLINT_ERR_CMD_EXECUTION;
 					goto CLEANUP;
 				}
 			}
@@ -388,7 +361,8 @@ String *build_project(Arena *global_str_arena) {
 				string(cwd), "/", at(stat_file_arr, i), "\")")));
 #endif
 			if (cmd_err) {
-				fprintf(stderr, "Error encountered while adding static libs\n");
+				flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+				build_project_status = FLINT_ERR_CMD_EXECUTION;
 				goto CLEANUP;
 			}
 		}
@@ -429,14 +403,16 @@ String *build_project(Arena *global_str_arena) {
 	create_append_err = create_append_file("./build/.cache/compile.rsp",
 										   string(response_content));
 	if (create_append_err) {
-		fprintf(stderr, "Error encountered while generating `compile.rsp`\n");
+		flint_error("Build project", FLINT_ERR_MKFILE);
+		build_project_status = FLINT_ERR_MKFILE;
 		goto CLEANUP;
 	}
 
 	create_append_err =
 		create_append_file("./build/.cache/lib_links.rsp", string(lib_links));
 	if (create_append_err) {
-		fprintf(stderr, "Error encountered while generating `lib_links.rsp`\n");
+		flint_error("Build project", FLINT_ERR_MKFILE);
+		build_project_status = FLINT_ERR_MKFILE;
 		goto CLEANUP;
 	}
 
@@ -477,7 +453,8 @@ String *build_project(Arena *global_str_arena) {
 				"\" -o \"", string(obj_file), "\""));
 			cmd_err = system(compilation_command);
 			if (cmd_err) {
-				fprintf(stderr, "Error encountered at compilation\n");
+				flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+				build_project_status = FLINT_ERR_CMD_EXECUTION;
 				goto CLEANUP;
 			}
 
@@ -519,18 +496,20 @@ String *build_project(Arena *global_str_arena) {
 			"\" @./build/.cache/lib_links.rsp")));
 
 		if (cmd_err) {
-			fprintf(stderr, "Error encountered while generating executable\n");
+			flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+			build_project_status = FLINT_ERR_CMD_EXECUTION;
 			goto CLEANUP;
 		}
 		output = string_clone(global_str_arena, target_path);
 		flint_success("Executable generated");
 	} else {
-		if (archiever.err != FLINT_OK) {
-			// if (string_len(archiever) == 0) {
-			// printf("[x] No archiever found!\n");
-			flint_error("Archiver not found", FLINT_ERR_ARCHIVER_UNAVAILABLE);
-			goto CLEANUP;
-		}
+		// if (archiever.err != FLINT_OK) {
+		// 	// if (string_len(archiever) == 0) {
+		// 	// printf("[x] No archiever found!\n");
+		// 	flint_error("Build project", FLINT_ERR_ARCHIVER_UNAVAILABLE);
+		// 	build_project_status = FLINT_ERR_ARCHIVER_UNAVAILABLE;
+		// 	goto CLEANUP;
+		// }
 
 		const char *lib_dirs[] = {
 			"./build/static",		  "./build/shared",
@@ -539,8 +518,8 @@ String *build_project(Arena *global_str_arena) {
 		for (int i = 0; i < 6; i++) {
 			mkdir_err = MAKE_DIR(lib_dirs[i]);
 			if (mkdir_err && errno != EEXIST) {
-				fprintf(stderr, "Error encountered while generating "
-								"library directories\n");
+				flint_error("Build project", FLINT_ERR_MKDIR);
+				build_project_status = FLINT_ERR_MKDIR;
 				goto CLEANUP;
 			}
 		}
@@ -552,33 +531,30 @@ String *build_project(Arena *global_str_arena) {
 			"\" @./build/.cache/lib_links.rsp")));
 
 		if (cmd_err) {
-			fprintf(stderr,
-					"Error encountered while generating shared library\n");
+			flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+			build_project_status = FLINT_ERR_CMD_EXECUTION;
 			goto CLEANUP;
 		}
 
 #if defined(_WIN32)
-		if (STR_CMP(string(archiever), "lib") == 0 ||
-			STR_CMP(string(archiever), "llvm-lib") == 0) {
+		if (STR_CMP(string(ar_tool), "lib") == 0 ||
+			STR_CMP(string(ar_tool), "llvm-lib") == 0) {
 			cmd_err = system(string(string_concat_cstr(
-				conf->arena, 5, string(archiever),
-				" /OUT:\"./build/static/lib/", string(conf->project_name),
-				".lib\" ", link_objs)));
+				conf->arena, 5, ar_tool, " /OUT:\"./build/static/lib/",
+				string(conf->project_name), ".lib\" ", link_objs)));
 		} else {
 			cmd_err = system(string(string_concat_cstr(
-				conf->arena, 5, string(archiever),
-				" rcs \"./build/static/lib/lib", string(conf->project_name),
-				".a\" ", link_objs)));
+				conf->arena, 5, ar_tool, " rcs \"./build/static/lib/lib",
+				string(conf->project_name), ".a\" ", link_objs)));
 		}
 #else
 		cmd_err = system(string(string_concat_cstr(
-			conf->arena, 5, string(archiever.value),
-			" rcs \"./build/static/lib/lib", string(conf->project_name),
-			".a\" ", link_objs)));
+			conf->arena, 5, ar_tool, " rcs \"./build/static/lib/lib",
+			string(conf->project_name), ".a\" ", link_objs)));
 #endif
 		if (cmd_err) {
-			fprintf(stderr,
-					"Error encountered while generating static library\n");
+			flint_error("Build project", FLINT_ERR_CMD_EXECUTION);
+			build_project_status = FLINT_ERR_CMD_EXECUTION;
 			goto CLEANUP;
 		}
 
@@ -595,7 +571,8 @@ String *build_project(Arena *global_str_arena) {
 				copy_err = copy_file(src_path, dest_path_2);
 			}
 			if (copy_err) {
-				fprintf(stderr, "Error encountered while copying headers\n");
+				flint_error("Build project", FLINT_ERR_COPY_HEADERS);
+				build_project_status = FLINT_ERR_COPY_HEADERS;
 				goto CLEANUP;
 			}
 		}
@@ -610,16 +587,21 @@ String *build_project(Arena *global_str_arena) {
 
 CLEANUP:
 	config_free(conf);
-	return output ? output : string_from(global_str_arena, "");
+	return output ? FLINT_OK_VAL(flint_res_string_t, output)
+				  : FLINT_ERR_VAL(flint_res_string_t, build_project_status);
 }
 
-void run_project(Arena *global_str_arena) {
-	String *target = build_project(global_str_arena);
-	if (!target || string_len(target) == 0) {
-		return;
+flint_err_t run_project(Arena *global_str_arena) {
+	flint_res_string_t target = build_project(global_str_arena);
+	if (target.err != FLINT_OK) {
+		return target.err;
+	}
+	if (!target.value || string_len(target.value) == 0) {
+		flint_error("Run project", FLINT_ERR_UNKNOWN);
+		return FLINT_ERR_UNKNOWN;
 	}
 
-	char *path_str = string(target);
+	char *path_str = string(target.value);
 	char command[4096];
 
 #if defined(_WIN32)
@@ -637,5 +619,9 @@ void run_project(Arena *global_str_arena) {
 	snprintf(command, sizeof(command), "\"%s\"", path_str);
 #endif
 
-	system(command);
+	int cmd_err = system(command);
+	if (cmd_err) {
+		return FLINT_ERR_CMD_EXECUTION;
+	}
+	return FLINT_OK;
 }

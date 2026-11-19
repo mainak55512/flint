@@ -121,21 +121,22 @@ FLINT_DEFINE_RESULT(char *, flint_res_str_t);
 FLINT_DEFINE_RESULT(const char *, flint_res_cstr_t);
 FLINT_DEFINE_RESULT(void *, flint_res_ptr_t);
 FLINT_DEFINE_RESULT(String *, flint_res_string_t);
+FLINT_DEFINE_RESULT(Config *, flint_res_config_t);
 
 int create_append_file(char *file_path, char *content);
 void create_my_build_config(char *config_file_path, char *project_name,
 							char *project_lang, char *compiler_path,
 							bool isExec);
 int check_project_lang(char *lang);
-String *build_project(Arena *global_str_arena);
+flint_res_string_t build_project(Arena *global_str_arena);
 bool set_contains_str(Vector(String *) v, String *elem);
 void set_add_str(Vector(String *) v, String *elem);
 char *safe_str(String *s);
-Config *config_init();
+flint_res_config_t config_init();
 Sync_config *read_sync_config(Arena *arena, yyjson_val *val);
 void sync_config_free(Sync_config *conf);
 void config_free(Config *conf);
-void read_flint_composition(char *composition_path, Config *conf);
+flint_err_t read_flint_composition(char *composition_path, Config *conf);
 void write_flint_composition(char *composition_path, Config *conf);
 String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key);
 Vector(String *) parse_string_array(Arena *arena, yyjson_val *obj, char *key);
@@ -147,7 +148,7 @@ bool set_contains(Vector(const char *) v, const char *elem);
 void set_add(Vector(const char *) v, const char *elem);
 Dependency *clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
-int init_project();
+flint_err_t init_project();
 String *collect_src_files(Arena *str_arena, String *path);
 String *collect_files(Arena *str_arena, String *path, String *type);
 Vector(String *) string_split_lines(Arena *arena, String *str);
@@ -161,35 +162,34 @@ char *arena_strdup(Arena *arena, const char *str);
 char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash);
 Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash);
-void add_lib(char *libURL);
+flint_err_t add_lib(char *libURL);
 void remove_library_partial(Arena *arena, char *libURL);
-void remove_library(char *repo_name);
-void run_project(Arena *global_str_arena);
-void sync_lib(char *elem);
+flint_err_t remove_library(char *repo_name);
+flint_err_t run_project(Arena *global_str_arena);
+flint_err_t sync_lib(char *elem);
 const char *get_filename_without_path(const char *path);
-int cli(int argc, char *argv[], Arena *global_str_arena);
+flint_err_t cli(int argc, char *argv[], Arena *global_str_arena);
 long long get_file_modified_time(const char *path);
 bool are_headers_newer(const char *d_file_path, long long obj_time);
 bool directory_exists(const char *path);
 String *get_flags(Arena *str_arena, yyjson_val *root, String *type);
 int copy_file(const char *src_path, const char *dest_path);
 bool file_exists(const char *file_name);
-void add_local_lib(int lib_count, char **lib_link);
-void add_flag(int lib_count, char **lib_link);
+flint_err_t add_local_lib(int lib_count, char **lib_link);
+flint_err_t add_flag(int lib_count, char **lib_link);
 int remove_directory(Arena *arena, const char *path);
 char *read_current_version_from_file(Arena *arena);
 void update_version_file(char *version);
 Vector(String *) remove_excludes(Arena *arena, Vector(String *) collected,
 								 Vector(String *) excludes);
-void list_deps();
+flint_err_t list_deps();
 void expand_line(const char *src, FILE *out, yyjson_val *vars);
 int gen_header_from_tmpl(const char *in_path, const char *out_path);
 
-void traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
-				  Vector(const char *) hdr_dirs,
-				  Vector(const char *) static_libs,
-				  Vector(const char *) shared_libs,
-				  Vector(String *) excludes_dirs);
+flint_err_t
+traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
+			 Vector(const char *) hdr_dirs, Vector(const char *) static_libs,
+			 Vector(const char *) shared_libs, Vector(String *) excludes_dirs);
 
 void get_src_vec(Config *conf, Vector(const char *) src_arr,
 				 Vector(char *) source_files, String *cwd);

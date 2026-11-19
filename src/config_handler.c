@@ -1,8 +1,12 @@
+#include "flint_err.h"
 #include <flint.h>
 
-Config *config_init() {
+flint_res_config_t config_init() {
 	Arena *arena = arena_init(1024 * 1024);
 	Config *conf = arena_alloc(arena, sizeof(Config));
+	if (conf == NULL) {
+		return FLINT_ERR_VAL(flint_res_config_t, FLINT_ERR_CONFIG_INIT);
+	}
 	conf->project_name = NULL;
 	conf->project_language = NULL;
 	conf->compiler_path = NULL;
@@ -18,7 +22,7 @@ Config *config_init() {
 	conf->dependencies = NULL;
 	conf->arena = arena;
 
-	return conf;
+	return FLINT_OK_VAL(flint_res_config_t, conf);
 }
 
 Sync_config *read_sync_config(Arena *arena, yyjson_val *val) {
@@ -52,14 +56,18 @@ void config_free(Config *conf) {
 	arena_free(&arena_to_free);
 }
 
-void read_flint_composition(char *composition_path, Config *conf) {
+flint_err_t read_flint_composition(char *composition_path, Config *conf) {
 	yyjson_doc *doc = yyjson_read_file(composition_path, 0, NULL, NULL);
 	if (!doc) {
-		fprintf(stderr, "Failed to read or parse JSON file.\n");
-		return;
+		flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
+		return FLINT_ERR_COMPOSITION_READ;
 	}
 
 	yyjson_val *root = yyjson_doc_get_root(doc);
+	if (!root) {
+		flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
+		return FLINT_ERR_COMPOSITION_READ;
+	}
 	conf->project_name = safe_get_string(conf->arena, root, "project_name");
 	conf->project_language =
 		safe_get_string(conf->arena, root, "project_language");
@@ -109,6 +117,7 @@ void read_flint_composition(char *composition_path, Config *conf) {
 	}
 
 	yyjson_doc_free(doc);
+	return FLINT_OK;
 }
 
 void write_flint_composition(char *composition_path, Config *conf) {
@@ -236,7 +245,9 @@ void write_flint_composition(char *composition_path, Config *conf) {
 	if (success) {
 		flint_info("Composition created/updated...");
 	} else {
-		printf("[x] Failed to write JSON: %s (code: %u)\n", err.msg, err.code);
+		// printf("[x] Failed to write JSON: %s (code: %u)\n", err.msg,
+		// err.code);
+		flint_error("Write composition", FLINT_ERR_COMPOSITION_WRITE);
 	}
 	yyjson_mut_doc_free(doc);
 }
@@ -435,17 +446,47 @@ void _add_local(Config *conf, int lib_count, char **lib_link, char *element) {
 	}
 }
 
-void add_local_lib(int lib_count, char **lib_link) {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t add_local_lib(int lib_count, char **lib_link) {
+	// Config *conf = config_init();
+	// read_flint_composition("composition.json", conf);
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Sync library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+	err = read_flint_composition("composition.json", conf);
+
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	_add_local(conf, lib_count, lib_link, "lib_links");
 	write_flint_composition("composition.json", conf);
+CLEANUP:
 	config_free(conf);
+	return err;
 }
-void add_flag(int lib_count, char **lib_link) {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t add_flag(int lib_count, char **lib_link) {
+	// Config *conf = config_init();
+	// read_flint_composition("composition.json", conf);
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Sync library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+	err = read_flint_composition("composition.json", conf);
+
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	_add_local(conf, lib_count, lib_link, "flags");
 	write_flint_composition("composition.json", conf);
+CLEANUP:
 	config_free(conf);
+	return err;
 }

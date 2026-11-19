@@ -1,3 +1,5 @@
+#include "cmap.h"
+#include "flint_err.h"
 #include <flint.h>
 
 Vector(String *)
@@ -75,8 +77,9 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	lib_details->hash = string_from(arena, (char *)ref_hash);
 	lib_details->remote = string_from(arena, libURL);
 
-	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
-		   string(lib_details->version), string(lib_details->hash));
+	// flint_success("Installed %s (version: %s, hash: %s)",
+	// 			  lib_details->repo_name, string(lib_details->version),
+	// 			  string(lib_details->hash));
 
 	return lib_details;
 }
@@ -168,8 +171,9 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	lib_details->hash = string_from(arena, hash_buf);
 	lib_details->remote = string_from(arena, url_buf);
 
-	printf("[✓] Installed %s (version: %s, hash: %s)\n", lib_details->repo_name,
-		   string(lib_details->version), string(lib_details->hash));
+	// flint_success("Installed %s (version: %s, hash: %s)",
+	// 			  lib_details->repo_name, string(lib_details->version),
+	// 			  string(lib_details->hash));
 
 	return lib_details;
 }
@@ -246,7 +250,7 @@ void sync_exclude_exception(Config *conf, Vector(String *) exclude_exception,
 }
 
 void sync_tmpl(Config *conf, Cmap(String *) tmpl) {
-	if (!tmpl) {
+	if (!tmpl || !map_len(tmpl)) {
 		return;
 	}
 
@@ -254,10 +258,14 @@ void sync_tmpl(Config *conf, Cmap(String *) tmpl) {
 	for (int j = 0; j < length(tmpl_keys); j++) {
 		char *key = at(tmpl_keys, j);
 		String *val = map_get(tmpl, key);
-		String *existing = map_get(conf->tmpl, key);
+		if (map_len(conf->tmpl)) {
+			if (map_has(conf->tmpl, key)) {
+				String *existing = map_get(conf->tmpl, key);
 
-		if (existing && string_comp(existing, val)) {
-			continue;
+				if (existing && string_comp(existing, val)) {
+					continue;
+				}
+			}
 		}
 
 		map_add(conf->tmpl, key, string_clone(conf->arena, val));
@@ -278,6 +286,8 @@ void fetch_library(Config *current_config, char *libURL, char *hash,
 	if (lib_details == NULL) {
 		return;
 	}
+	flint_success("Fetched %s (version: %s, hash: %s)", lib_details->repo_name,
+				  string(lib_details->version), string(lib_details->hash));
 
 	update_lock(lock, lib_details);
 	update_dependency_map(current_config, lib_details);
@@ -293,8 +303,19 @@ void fetch_library(Config *current_config, char *libURL, char *hash,
 		return;
 	}
 
-	Config *dep_config = config_init();
-	read_flint_composition(string(config_path), dep_config);
+	flint_res_config_t dep_config_wraper = config_init();
+
+	if (dep_config_wraper.err != FLINT_OK) {
+	} // TODO
+
+	Config *dep_config = dep_config_wraper.value;
+
+	flint_err_t read_err =
+		read_flint_composition(string(config_path), dep_config);
+
+	if (read_err != FLINT_OK) {
+	} // TODO
+
 	arena_temp_end(temp);
 
 	sync_flags(current_config, dep_config->flags);
@@ -336,7 +357,7 @@ void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
 	Sync_config *remote_composition =
 		get_remote_composition(scratch, repo_name);
 	if (remote_composition == NULL) {
-		printf("Unable to fetch remote composition\n");
+		flint_error("Unable to fetch remote composition", FLINT_ERR_UNKNOWN);
 		arena_free(&scratch);
 		return;
 	}
@@ -358,16 +379,27 @@ void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
 							   repo_name);
 		sync_tmpl(conf, remote_composition->tmpl);
 	} else {
-		printf("[*] Library '%s' already installed, hence skipping...\n",
-			   repo_name);
+		flint_warn("Library '%s' already installed, hence skipping...",
+				   repo_name);
 	}
 
 	arena_free(&scratch);
 }
 
-void add_lib(char *libURL) {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t add_lib(char *libURL) {
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Add library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+
+	err = read_flint_composition("composition.json", conf);
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	Cmap(Dependency *) lock = read_lock_file(conf->arena);
 
 	if (strncmp(libURL, "cherts:", 7) == 0) {
@@ -377,20 +409,34 @@ void add_lib(char *libURL) {
 						   get_modified_url(conf->arena, libURL))) {
 			fetch_library(conf, libURL, "", lock, false);
 		} else {
-			printf("[*] Dependency already available or malformed URL, "
-				   "installation skipped...\n");
+			flint_warn("Dependency already available or malformed URL, "
+					   "installation skipped...");
 		}
 	}
 
 	write_flint_composition("composition.json", conf);
 	write_lock_file(lock);
 	generate_compile_commands(conf);
+
+CLEANUP:
 	config_free(conf);
+	return err;
 }
 
-void sync_lib(char *elem) {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t sync_lib(char *elem) {
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Sync library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+	err = read_flint_composition("composition.json", conf);
+
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 
 	if (elem && STR_CMP(elem, "all") == 0) {
 		remove("flint.lock");
@@ -429,9 +475,8 @@ void sync_lib(char *elem) {
 									   repo_name);
 				sync_tmpl(conf, dependency->tmpl);
 			} else {
-				printf(
-					"[*] Library '%s' already installed, hence skipping...\n",
-					repo_name);
+				flint_warn("Library '%s' already installed, hence skipping...",
+						   repo_name);
 			}
 		}
 		// vector_free(&sync_keys);
@@ -464,7 +509,10 @@ void sync_lib(char *elem) {
 	write_flint_composition("composition.json", conf);
 	write_lock_file(lock);
 	generate_compile_commands(conf);
+
+CLEANUP:
 	config_free(conf);
+	return err;
 }
 
 void remove_library_partial(Arena *arena, char *repo_name) {
@@ -477,14 +525,26 @@ void remove_library_partial(Arena *arena, char *repo_name) {
 	write_lock_file(lock);
 }
 
-void remove_library(char *repo_name) {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t remove_library(char *repo_name) {
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Sync library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+	err = read_flint_composition("composition.json", conf);
+
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 
 	if (!map_has(conf->dependencies, repo_name)) {
-		config_free(conf);
-		printf("[x] No dependency named '%s' found\n", repo_name);
-		return;
+		// config_free(conf);
+		flint_info("No dependency named '%s' found", repo_name);
+		goto CLEANUP;
+		// return;
 	}
 
 	// printf("[+] Removing '%s'...\n", repo_name);
@@ -504,25 +564,40 @@ void remove_library(char *repo_name) {
 
 	map_remove(conf->dependencies, repo_name);
 
-	printf("[✓] Removed %s!\n", repo_name);
+	flint_success("Removed %s!", repo_name);
 	write_flint_composition("composition.json", conf);
 	generate_compile_commands(conf);
+
+CLEANUP:
 	config_free(conf);
+	return err;
 }
 
-void list_deps() {
-	Config *conf = config_init();
-	read_flint_composition("composition.json", conf);
+flint_err_t list_deps() {
+	flint_err_t err = FLINT_OK;
+	flint_res_config_t conf_wraper = config_init();
+	if (conf_wraper.err != FLINT_OK) {
+		flint_error("Sync library", conf_wraper.err);
+		return conf_wraper.err;
+	}
+	Config *conf = conf_wraper.value;
+	err = read_flint_composition("composition.json", conf);
 
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	if (map_len(conf->dependencies) > 0) {
 		Vector(char *) dep_list = map_keys(conf->dependencies);
 		for (int i = 0; i < length(dep_list); i++) {
 			char *key = at(dep_list, i);
 			Dependency *dep = map_get(conf->dependencies, key);
-			printf("[*] %s: %s\n", key, string(dep->version));
+			flint_info("%s: %s", key, string(dep->version));
 		}
 	} else {
-		printf("[x] No dependencies found.\n");
+		flint_info("No dependencies found");
 	}
+CLEANUP:
 	config_free(conf);
+	return err;
 }

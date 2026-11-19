@@ -1,3 +1,4 @@
+#include "flint_err.h"
 #include <flint.h>
 
 typedef struct {
@@ -26,59 +27,6 @@ void print_version_details() {
 }
 
 void print_help_message() {
-	/*
-	const char *art =
-		"                                           \n"
-		"                                       *:                 "
-		"                      \n"
-		"                                     :%%%=                "
-		"                      \n"
-		"                                    =%%%%%*.              "
-		"                      \n"
-		"                                   *%%%%%%%%*             "
-		"                      \n"
-		"                                  %%%%%%%%%%%%            "
-		"                      \n"
-		"                                -%%%%%%%%%%%%%%-          "
-		"                      \n"
-		"                               :%%%%%%%%%%%%%%%%*         "
-		"                      \n"
-		"                              #%%%%%%%%%%%%%%%%%%%=       "
-		"                      \n"
-		"                             =%%%%%%%%%%%%%%%%%%%%%.      "
-		"                      \n"
-		"                              #%%%%%%%%#.*%%%%%%%#.       "
-		"                      \n"
-		"                               -%%%%%:  +%%%%%%%=         "
-		"                      \n"
-		"                                -%=    -%%%%%%%           "
-		"                      \n"
-		"                                      .%%%%%%-            "
-		"                      \n"
-		"                                     =%%%%%%.             "
-		"                      \n"
-		"                                    .%%%%%*               "
-		"                      \n"
-		"                                    .#%%%.                "
-		"                      \n"
-		"                                      #+                  "
-		"                      \n"
-		"                                                          "
-		"                       \n"
-		"                                                          "
-		"                       \n"
-		"                                                          "
-		"                       \n"
-		"        -%%***+        -%.            %%:        :%%:  =% "
-		"       :**#%%**-      \n"
-		"        -%%            -%.            %%-        :%:%= =% "
-		"          =%*         \n"
-		"        -%%:::.        -%.            %%:        :% .#%%% "
-		"          =%*         \n"
-		"        -%%            -%#***=        %%-        :%   =%% "
-		"          =%*\n";
-	printf("%s\n", art);
-*/
 	printf("\nUsage: flint <command> [args]\n\n");
 	printf("Commands:\n");
 
@@ -87,56 +35,64 @@ void print_help_message() {
 	}
 }
 
-int cli(int argc, char *argv[], Arena *global_str_arena) {
+flint_err_t cli(int argc, char *argv[], Arena *global_str_arena) {
 	if (argc < 2) {
 		print_help_message();
-		return 1;
+		return FLINT_ERR_UNKNOWN;
 	}
 	char *opt = argv[1];
 	if (STR_CMP(opt, "help") == 0) {
 		print_help_message();
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "init") == 0) {
 		return init_project();
 	} else if (STR_CMP(opt, "add") == 0) {
 		add_lib(argv[2]);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "remove") == 0) {
 		remove_library(argv[2]);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "add-lib") == 0) {
 		add_local_lib(argc - 2, argv + 2);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "add-flag") == 0) {
 		add_flag(argc - 2, argv + 2);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "build") == 0) {
-		build_project(global_str_arena);
-		return 0;
+		return build_project(global_str_arena).err;
 	} else if (STR_CMP(opt, "run") == 0) {
-		run_project(global_str_arena);
-		return 0;
+		return run_project(global_str_arena);
 	} else if (STR_CMP(opt, "gen") == 0) {
-		Config *conf = config_init();
-		read_flint_composition("composition.json", conf);
+		flint_res_config_t conf_wraper = config_init();
+		if (conf_wraper.err != FLINT_OK) {
+			flint_error("Generate compile_commands", conf_wraper.err);
+			return conf_wraper.err;
+		}
+		Config *conf = conf_wraper.value;
+		flint_err_t conf_read_status =
+			read_flint_composition("composition.json", conf);
+		if (conf_read_status != FLINT_OK) {
+			flint_error("Generate compile_commands", conf_read_status);
+			return conf_read_status;
+		}
 		generate_compile_commands(conf);
 		config_free(conf);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "sync") == 0) {
 		sync_lib(argv[2]);
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "deps") == 0) {
 		list_deps();
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "version") == 0) {
 		print_version_details();
-		return 0;
+		return FLINT_OK;
 	} else if (STR_CMP(opt, "cache") == 0) {
 		clear_cache();
-		return 0;
+		return FLINT_OK;
 	} else {
 		printf("Unknown command: %s\n", opt);
 		print_help_message();
-		return 1;
+		return FLINT_ERR_UNKNOWN;
 	}
 }
