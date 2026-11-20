@@ -20,7 +20,10 @@
 	X(FLINT_ERR_CONFIG_INIT, "Config initialization failed")                   \
 	X(FLINT_ERR_CMD_EXECUTION, "Unexpected command execution error")           \
 	X(FLINT_ERR_TRAVERSAL, "Subdirectory traversal error")                     \
-	X(FLINT_ERR_COPY_HEADERS, "Error encountered while copying headers")
+	X(FLINT_ERR_COPY_HEADERS, "Error encountered while copying headers")       \
+	X(FLINT_ERR_CONFIG_NOT_FOUND, "Flint composition not found")               \
+	X(FLINT_ERR_CONFIG_UNKNOWN,                                                \
+	  "Unknown error encountered while handling composition")
 
 typedef enum {
 #define X(code, msg) code,

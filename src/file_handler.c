@@ -681,6 +681,6 @@ traverse_dir(Arena *arena, String *dir_path, Vector(const char *) src_dirs,
 void clear_cache() {
 	Arena *arena = arena_init(2048);
 	remove_directory(arena, "build/.cache");
-	printf("[✓] Cache cleared");
+	flint_success("Cache cleared");
 	arena_free(&arena);
 }

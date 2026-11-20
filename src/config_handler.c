@@ -59,13 +59,13 @@ void config_free(Config *conf) {
 flint_err_t read_flint_composition(char *composition_path, Config *conf) {
 	yyjson_doc *doc = yyjson_read_file(composition_path, 0, NULL, NULL);
 	if (!doc) {
-		flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
+		// flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
 		return FLINT_ERR_COMPOSITION_READ;
 	}
 
 	yyjson_val *root = yyjson_doc_get_root(doc);
 	if (!root) {
-		flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
+		// flint_error("Composition file read", FLINT_ERR_COMPOSITION_READ);
 		return FLINT_ERR_COMPOSITION_READ;
 	}
 	conf->project_name = safe_get_string(conf->arena, root, "project_name");
@@ -120,12 +120,18 @@ flint_err_t read_flint_composition(char *composition_path, Config *conf) {
 	return FLINT_OK;
 }
 
-void write_flint_composition(char *composition_path, Config *conf) {
+flint_err_t write_flint_composition(char *composition_path, Config *conf) {
+	flint_err_t comp_write_err = FLINT_OK;
 	if (!conf || !composition_path)
-		return;
+		return FLINT_ERR_CONFIG_NOT_FOUND;
 
 	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *root = yyjson_mut_obj(doc);
+
+	if (!root) {
+		comp_write_err = FLINT_ERR_CONFIG_UNKNOWN;
+		goto CLEANUP;
+	}
 	yyjson_mut_doc_set_root(doc, root);
 
 	yyjson_mut_obj_add_str(doc, root, "project_name",
@@ -243,13 +249,18 @@ void write_flint_composition(char *composition_path, Config *conf) {
 		yyjson_mut_write_file(composition_path, doc, flg, NULL, &err);
 
 	if (success) {
-		flint_info("Composition created/updated...");
+		// flint_success("Composition created/updated...");
+		comp_write_err = FLINT_OK;
 	} else {
 		// printf("[x] Failed to write JSON: %s (code: %u)\n", err.msg,
 		// err.code);
-		flint_error("Write composition", FLINT_ERR_COMPOSITION_WRITE);
+		// flint_error("Write composition", FLINT_ERR_COMPOSITION_WRITE);
+		comp_write_err = FLINT_ERR_COMPOSITION_WRITE;
 	}
+
+CLEANUP:
 	yyjson_mut_doc_free(doc);
+	return comp_write_err;
 }
 
 Cmap(Dependency *) read_lock_file(Arena *arena) {

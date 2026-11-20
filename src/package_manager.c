@@ -414,7 +414,11 @@ flint_err_t add_lib(char *libURL) {
 		}
 	}
 
-	write_flint_composition("composition.json", conf);
+	err = write_flint_composition("composition.json", conf);
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	write_lock_file(lock);
 	generate_compile_commands(conf);
 
@@ -434,7 +438,7 @@ flint_err_t sync_lib(char *elem) {
 	err = read_flint_composition("composition.json", conf);
 
 	if (err != FLINT_OK) {
-		flint_error("Add library", err);
+		flint_error("Sync library", err);
 		goto CLEANUP;
 	}
 
@@ -506,7 +510,11 @@ flint_err_t sync_lib(char *elem) {
 		// vector_free(&dep_keys);
 	}
 
-	write_flint_composition("composition.json", conf);
+	err = write_flint_composition("composition.json", conf);
+	if (err != FLINT_OK) {
+		flint_error("Sync library", err);
+		goto CLEANUP;
+	}
 	write_lock_file(lock);
 	generate_compile_commands(conf);
 
@@ -529,20 +537,20 @@ flint_err_t remove_library(char *repo_name) {
 	flint_err_t err = FLINT_OK;
 	flint_res_config_t conf_wraper = config_init();
 	if (conf_wraper.err != FLINT_OK) {
-		flint_error("Sync library", conf_wraper.err);
+		flint_error("Remove library", conf_wraper.err);
 		return conf_wraper.err;
 	}
 	Config *conf = conf_wraper.value;
 	err = read_flint_composition("composition.json", conf);
 
 	if (err != FLINT_OK) {
-		flint_error("Add library", err);
+		flint_error("Remove library", err);
 		goto CLEANUP;
 	}
 
 	if (!map_has(conf->dependencies, repo_name)) {
 		// config_free(conf);
-		flint_info("No dependency named '%s' found", repo_name);
+		flint_warn("No dependency named '%s' found", repo_name);
 		goto CLEANUP;
 		// return;
 	}
@@ -565,7 +573,11 @@ flint_err_t remove_library(char *repo_name) {
 	map_remove(conf->dependencies, repo_name);
 
 	flint_success("Removed %s!", repo_name);
-	write_flint_composition("composition.json", conf);
+	err = write_flint_composition("composition.json", conf);
+	if (err != FLINT_OK) {
+		flint_error("Remove library", err);
+		goto CLEANUP;
+	}
 	generate_compile_commands(conf);
 
 CLEANUP:

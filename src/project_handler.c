@@ -1,5 +1,3 @@
-#include "flint_err.h"
-#include "flint_log.h"
 #include <flint.h>
 
 flint_res_bool_t check_available_tool(const char *cmd) {
@@ -214,7 +212,11 @@ flint_err_t init_project() {
 	}
 
 	conf->version = string_from(conf->arena, "unknown");
-	write_flint_composition("composition.json", conf);
+	ret = write_flint_composition("composition.json", conf);
+	if (ret != FLINT_OK) {
+		flint_error("Init project", ret);
+		goto CLEANUP;
+	}
 	flint_success("Flint project '%s' successfully initiated",
 				  string(conf->project_name));
 	generate_compile_commands(conf);

@@ -137,7 +137,7 @@ Sync_config *read_sync_config(Arena *arena, yyjson_val *val);
 void sync_config_free(Sync_config *conf);
 void config_free(Config *conf);
 flint_err_t read_flint_composition(char *composition_path, Config *conf);
-void write_flint_composition(char *composition_path, Config *conf);
+flint_err_t write_flint_composition(char *composition_path, Config *conf);
 String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key);
 Vector(String *) parse_string_array(Arena *arena, yyjson_val *obj, char *key);
 Cmap(Dependency *) read_lock_file(Arena *arena);
