@@ -420,7 +420,11 @@ flint_err_t add_lib(char *libURL) {
 		goto CLEANUP;
 	}
 	write_lock_file(lock);
-	generate_compile_commands(conf);
+	err = generate_compile_commands(conf);
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 
 CLEANUP:
 	config_free(conf);
@@ -516,7 +520,11 @@ flint_err_t sync_lib(char *elem) {
 		goto CLEANUP;
 	}
 	write_lock_file(lock);
-	generate_compile_commands(conf);
+	err = generate_compile_commands(conf);
+	if (err != FLINT_OK) {
+		flint_error("Sync library", err);
+		goto CLEANUP;
+	}
 
 CLEANUP:
 	config_free(conf);
@@ -578,7 +586,11 @@ flint_err_t remove_library(char *repo_name) {
 		flint_error("Remove library", err);
 		goto CLEANUP;
 	}
-	generate_compile_commands(conf);
+	err = generate_compile_commands(conf);
+	if (err != FLINT_OK) {
+		flint_error("Remove library", err);
+		goto CLEANUP;
+	}
 
 CLEANUP:
 	config_free(conf);

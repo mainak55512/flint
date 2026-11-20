@@ -346,10 +346,10 @@ void write_lock_file(Cmap(Dependency *) lock) {
 	yyjson_mut_doc_free(doc);
 }
 
-int generate_compile_commands(Config *conf) {
-	// char *input_file = "composition.json";
+flint_err_t generate_compile_commands(Config *conf) {
+	flint_err_t err = FLINT_OK;
 	char *output_file = "compile_commands.json";
-	int success = 1;
+	// int success = 1;
 	String *cwd = get_current_working_dir(conf->arena);
 
 	Vector(const char *) include_paths = vector_init(conf->arena);
@@ -358,9 +358,13 @@ int generate_compile_commands(Config *conf) {
 	Vector(const char *) shared_libs = vector_init(conf->arena);
 	size_t idx = 0, max = 0;
 	yyjson_val *val, *key;
-	traverse_dir(conf->arena, string_from(conf->arena, "."), src_paths,
-				 include_paths, static_libs, shared_libs, conf->exclude_dirs);
+	err = traverse_dir(conf->arena, string_from(conf->arena, "."), src_paths,
+					   include_paths, static_libs, shared_libs,
+					   conf->exclude_dirs);
 
+	if (err != FLINT_OK) {
+		return err;
+	}
 	if (conf->exclude_exception) {
 		for (int i = 0; i < length(conf->exclude_exception); i++) {
 			set_add(src_paths, string(at(conf->exclude_exception, i)));
@@ -383,22 +387,13 @@ int generate_compile_commands(Config *conf) {
 	for (size_t i = 0; i < length(source_files); i++) {
 		yyjson_mut_val *entry = yyjson_mut_arr_add_obj(out_doc, out_root);
 
-		success =
-			yyjson_mut_obj_add_str(out_doc, entry, "directory", string(cwd));
-		if (!success) {
-			fprintf(stderr,
-					"Error encountered while generating compile commands\n");
-			success = 0;
-			yyjson_mut_doc_free(out_doc);
+		if (!yyjson_mut_obj_add_str(out_doc, entry, "directory", string(cwd))) {
+			err = FLINT_ERR_COMPILE_COMMANDS;
 			goto CLEANUP;
 		}
-		success =
-			yyjson_mut_obj_add_str(out_doc, entry, "file", at(source_files, i));
-		if (!success) {
-			fprintf(stderr,
-					"Error encountered while generating compile commands\n");
-			success = 0;
-			yyjson_mut_doc_free(out_doc);
+		if (!yyjson_mut_obj_add_str(out_doc, entry, "file",
+									at(source_files, i))) {
+			err = FLINT_ERR_COMPILE_COMMANDS;
 			goto CLEANUP;
 		}
 
@@ -408,29 +403,24 @@ int generate_compile_commands(Config *conf) {
 							   " -c ", at(source_files, i), string(includes),
 							   " -o ", at(source_files, i), ".o");
 
-		success =
-			yyjson_mut_obj_add_str(out_doc, entry, "command", string(command));
-		if (!success) {
-			fprintf(stderr,
-					"Error encountered while generating compile commands\n");
-			success = 0;
-			yyjson_mut_doc_free(out_doc);
+		if (!yyjson_mut_obj_add_str(out_doc, entry, "command",
+									string(command))) {
+			err = FLINT_ERR_COMPILE_COMMANDS;
 			goto CLEANUP;
 		}
 	}
 
 	yyjson_write_err write_err;
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY | YYJSON_WRITE_ESCAPE_UNICODE;
-	success =
-		yyjson_mut_write_file(output_file, out_doc, flg, NULL, &write_err);
 
-	if (!success) {
-		fprintf(stderr, "Failed to write %s: %s\n", output_file, write_err.msg);
+	if (!yyjson_mut_write_file(output_file, out_doc, flg, NULL, &write_err)) {
+		err = FLINT_ERR_COMPILE_COMMANDS;
+		goto CLEANUP;
 	}
-	yyjson_mut_doc_free(out_doc);
 
 CLEANUP:
-	return success ? 0 : -1;
+	yyjson_mut_doc_free(out_doc);
+	return err;
 }
 
 bool is_mybuild_config_present(char *filename) {

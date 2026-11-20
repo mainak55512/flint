@@ -217,9 +217,13 @@ flint_err_t init_project() {
 		flint_error("Init project", ret);
 		goto CLEANUP;
 	}
+	ret = generate_compile_commands(conf);
+	if (ret != FLINT_OK) {
+		flint_error("Init project", ret);
+		goto CLEANUP;
+	}
 	flint_success("Flint project '%s' successfully initiated",
 				  string(conf->project_name));
-	generate_compile_commands(conf);
 
 CLEANUP:
 	config_free(conf);
@@ -505,14 +509,6 @@ flint_res_string_t build_project(Arena *global_str_arena) {
 		output = string_clone(global_str_arena, target_path);
 		flint_success("Executable generated");
 	} else {
-		// if (archiever.err != FLINT_OK) {
-		// 	// if (string_len(archiever) == 0) {
-		// 	// printf("[x] No archiever found!\n");
-		// 	flint_error("Build project", FLINT_ERR_ARCHIVER_UNAVAILABLE);
-		// 	build_project_status = FLINT_ERR_ARCHIVER_UNAVAILABLE;
-		// 	goto CLEANUP;
-		// }
-
 		const char *lib_dirs[] = {
 			"./build/static",		  "./build/shared",
 			"./build/static/lib",	  "./build/shared/lib",

@@ -22,6 +22,8 @@
 	X(FLINT_ERR_TRAVERSAL, "Subdirectory traversal error")                     \
 	X(FLINT_ERR_COPY_HEADERS, "Error encountered while copying headers")       \
 	X(FLINT_ERR_CONFIG_NOT_FOUND, "Flint composition not found")               \
+	X(FLINT_ERR_COMPILE_COMMANDS,                                              \
+	  "Error encountered while generating compile_commands")                   \
 	X(FLINT_ERR_CONFIG_UNKNOWN,                                                \
 	  "Unknown error encountered while handling composition")
 

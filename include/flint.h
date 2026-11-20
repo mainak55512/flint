@@ -153,7 +153,7 @@ String *collect_src_files(Arena *str_arena, String *path);
 String *collect_files(Arena *str_arena, String *path, String *type);
 Vector(String *) string_split_lines(Arena *arena, String *str);
 String *get_current_working_dir(Arena *arena);
-int generate_compile_commands(Config *conf);
+flint_err_t generate_compile_commands(Config *conf);
 char *get_repo_name(Arena *arena, const char *git_url);
 char *get_version_number(Arena *arena, const char *git_url);
 char *get_modified_url(Arena *arena, const char *git_url);
