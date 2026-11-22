@@ -80,7 +80,7 @@ flint_res_string_t get_archiever(Arena *arena) {
 	}
 #if defined(_WIN32)
 	flint_res_bool_t llvm_lib = check_available_tool("llvm-lib");
-	if (llvm_lib.err == FLINT_OK &&llvm_lib.value = true) {
+	if (llvm_lib.err == FLINT_OK && llvm_lib.value == true) {
 		return FLINT_OK_VAL(flint_res_string_t, string_from(arena, "llvm-lib"));
 	}
 	flint_res_bool_t lib = check_available_tool("lib");
@@ -535,8 +535,7 @@ flint_res_string_t build_project(Arena *global_str_arena) {
 		}
 
 #if defined(_WIN32)
-		if (STR_CMP(string(ar_tool), "lib") == 0 ||
-			STR_CMP(string(ar_tool), "llvm-lib") == 0) {
+		if (STR_CMP(ar_tool, "lib") == 0 || STR_CMP(ar_tool, "llvm-lib") == 0) {
 			cmd_err = system(string(string_concat_cstr(
 				conf->arena, 5, ar_tool, " /OUT:\"./build/static/lib/",
 				string(conf->project_name), ".lib\" ", link_objs)));

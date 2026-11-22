@@ -264,12 +264,14 @@ CLEANUP:
 
 flint_res_dep_map_t read_lock_file(Arena *arena) {
 	flint_err_t err = FLINT_OK;
+	Cmap(Dependency *) lock = map_init(arena);
+	if (!file_exists("flint.lock")) {
+		return FLINT_OK_VAL(flint_res_dep_map_t, lock);
+	}
 	yyjson_doc *doc = yyjson_read_file("flint.lock", 0, NULL, NULL);
 	if (!doc) {
 		return FLINT_ERR_VAL(flint_res_dep_map_t, FLINT_ERR_LOCK);
 	}
-
-	Cmap(Dependency *) lock = map_init(arena);
 
 	yyjson_val *root = yyjson_doc_get_root(doc);
 	if (!root) {
