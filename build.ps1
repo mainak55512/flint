@@ -9,7 +9,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSNativeCommandUseErrorActionPreference =$false
 }
 
-$VERSION = "v0.5.25"
+$VERSION = "v0.5.30"
 
 # 1. Compiler Detection
 $compiler =$null
@@ -41,16 +41,13 @@ $argsList = @(
     "-DMG_ENABLE_LOG=0",
     "-DPROJECT_VERSION=`"$VERSION`"",
     "-I./include",
-    "-I./deps/arena/include",
-    "-I./deps/CString/include",
-    "-I./deps/container/include",
-    "-I./deps/Cmap/include",
+    "-I./deps/arstd/include",
     "-I./deps/yyjson/src",
     "-I./deps/mongoose",
-    "./deps/arena/lib/arena.c",
-    "./deps/CString/lib/cstring.c",
-    "./deps/container/lib/cvector.c",
-    "./deps/Cmap/lib/cmap.c",
+    "./deps/arstd/lib/arena.c",
+    "./deps/arstd/lib/cstring.c",
+    "./deps/arstd/lib/cvector.c",
+    "./deps/arstd/lib/cmap.c",
     "./deps/yyjson/src/yyjson.c",
     "./deps/mongoose/mongoose.c",
     "./src/main.c",
@@ -60,6 +57,8 @@ $argsList = @(
     "./src/file_handler.c",
     "./src/package_manager.c",
     "./src/utils.c",
+    "./src/flint_err.c",
+    "./src/flint_log.c",
     "./src/project_handler.c",
     "-lws2_32",
     "-ladvapi32",

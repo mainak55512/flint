@@ -1,4 +1,3 @@
-#include "flint_err.h"
 #include <flint.h>
 
 flint_res_config_t config_init() {

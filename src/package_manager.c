@@ -1,5 +1,3 @@
-#include "cmap.h"
-#include "flint_err.h"
 #include <flint.h>
 
 flint_res_string_vec_t remove_arr_entry(Arena *arena, Vector(String *) arr,

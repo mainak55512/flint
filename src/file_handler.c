@@ -1,4 +1,3 @@
-#include "flint_err.h"
 #include <flint.h>
 
 int create_append_file(char *file_path, char *content) {
