@@ -122,6 +122,11 @@ FLINT_DEFINE_RESULT(const char *, flint_res_cstr_t);
 FLINT_DEFINE_RESULT(void *, flint_res_ptr_t);
 FLINT_DEFINE_RESULT(String *, flint_res_string_t);
 FLINT_DEFINE_RESULT(Config *, flint_res_config_t);
+FLINT_DEFINE_RESULT(Dependency *, flint_res_dep_t);
+FLINT_DEFINE_RESULT(Vector(String *), flint_res_string_vec_t);
+FLINT_DEFINE_RESULT(Cmap(String *), flint_res_string_map_t);
+FLINT_DEFINE_RESULT(Cmap(Dependency *), flint_res_dep_map_t);
+FLINT_DEFINE_RESULT(Sync_config *, flint_res_sync_config_t);
 
 int create_append_file(char *file_path, char *content);
 void create_my_build_config(char *config_file_path, char *project_name,
@@ -140,13 +145,13 @@ flint_err_t read_flint_composition(char *composition_path, Config *conf);
 flint_err_t write_flint_composition(char *composition_path, Config *conf);
 String *safe_get_string(Arena *arena, yyjson_val *obj, const char *key);
 Vector(String *) parse_string_array(Arena *arena, yyjson_val *obj, char *key);
-Cmap(Dependency *) read_lock_file(Arena *arena);
+flint_res_dep_map_t read_lock_file(Arena *arena);
 bool lock_contains(Arena *arena, Cmap(Dependency *) lock, char *libURL);
-void write_lock_file(Cmap(Dependency *) lock);
+flint_err_t write_lock_file(Cmap(Dependency *) lock);
 
 bool set_contains(Vector(const char *) v, const char *elem);
 void set_add(Vector(const char *) v, const char *elem);
-Dependency *clone_lib(Arena *arena, char *libURL, const char *hash);
+flint_res_dep_t clone_lib(Arena *arena, char *libURL, const char *hash);
 bool is_mybuild_config_present(char *filename);
 flint_err_t init_project();
 String *collect_src_files(Arena *str_arena, String *path);
@@ -161,9 +166,10 @@ char *get_lib_hash(Arena *arena, char *target_dir);
 char *arena_strdup(Arena *arena, const char *str);
 char *get_tag_from_hash(Arena *arena, const char *target_dir,
 						const char *ref_hash);
-Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash);
+flint_res_dep_t clone_lib_hashed(Arena *arena, char *libURL,
+								 const char *ref_hash);
 flint_err_t add_lib(char *libURL);
-void remove_library_partial(Arena *arena, char *libURL);
+flint_err_t remove_library_partial(Arena *arena, char *libURL);
 flint_err_t remove_library(char *repo_name);
 flint_err_t run_project(Arena *global_str_arena);
 flint_err_t sync_lib(char *elem);
@@ -201,10 +207,10 @@ void get_shared_lib_vec(Config *conf, Vector(const char *) src_arr,
 						Vector(char *) source_files, String *cwd);
 void clear_cache();
 
-void fetch_library(Config *current_config, char *libURL, char *hash,
-				   Cmap(Dependency *) lock, bool sync);
+flint_err_t fetch_library(Config *current_config, char *libURL, char *hash,
+						  Cmap(Dependency *) lock, bool sync);
 String *join_vec_to_str(Arena *arena, Vector(String *) v, const char *sep);
 bool is_platform_element(char *entry, char **out_flag);
-Sync_config *get_remote_composition(Arena *arena, char *fragment);
+flint_res_sync_config_t get_remote_composition(Arena *arena, char *fragment);
 
 #endif // FLINT_H

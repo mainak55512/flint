@@ -1,3 +1,4 @@
+#include "flint_err.h"
 #include <flint.h>
 
 struct http_request_ctx {
@@ -47,7 +48,9 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 	}
 }
 
-Sync_config *get_remote_composition(Arena *arena, char *repo_name) {
+flint_res_sync_config_t get_remote_composition(Arena *arena, char *repo_name) {
+	flint_err_t err = FLINT_OK;
+	Sync_config *sync = NULL;
 	mg_log_set(MG_LL_NONE);
 	mg_boot_timestamp_ms = (uint64_t)time(NULL) * 1000 - mg_millis();
 	struct mg_mgr mgr;
@@ -55,8 +58,6 @@ Sync_config *get_remote_composition(Arena *arena, char *repo_name) {
 	char *url = string(string_concat_cstr(
 		arena, 3, "https://mainak55512.github.io/flint-cherts/packages/",
 		repo_name, "/"));
-
-	// int url_len = strlen(url);
 
 	mg_mgr_init(&mgr);
 
@@ -68,9 +69,8 @@ Sync_config *get_remote_composition(Arena *arena, char *repo_name) {
 								   .arena = arena};
 
 	if (mg_http_connect(&mgr, ctx.url, fn, &ctx) == NULL) {
-		fprintf(stderr, "Failed to initiate connection\n");
-		mg_mgr_free(&mgr);
-		return NULL;
+		err = FLINT_ERR_CONN;
+		goto CLEANUP;
 	}
 
 	while (!ctx.done) {
@@ -81,24 +81,22 @@ Sync_config *get_remote_composition(Arena *arena, char *repo_name) {
 		yyjson_doc *doc = yyjson_read(ctx.response_body, ctx.response_len, 0);
 
 		if (!doc) {
-			fprintf(stderr, "Failed to parse JSON\n");
-			mg_mgr_free(&mgr);
-			return NULL;
+			err = FLINT_ERR_REMOTE_FETCH;
+			goto CLEANUP;
 		}
 		yyjson_val *root = yyjson_doc_get_root(doc);
 		yyjson_val *dependency = yyjson_obj_get(root, repo_name);
 
-		Sync_config *sync = read_sync_config(arena, dependency);
+		sync = read_sync_config(arena, dependency);
 
 		yyjson_doc_free(doc);
-		mg_mgr_free(&mgr);
-		return sync;
 
 	} else {
-		printf("Request failed or no body received. Status: %d\n",
-			   ctx.status_code);
+		err = FLINT_ERR_REMOTE_FETCH;
 	}
 
+CLEANUP:
 	mg_mgr_free(&mgr);
-	return NULL;
+	return err == FLINT_OK ? FLINT_OK_VAL(flint_res_sync_config_t, sync)
+						   : FLINT_ERR_VAL(flint_res_sync_config_t, err);
 }

@@ -263,21 +263,30 @@ CLEANUP:
 	return comp_write_err;
 }
 
-Cmap(Dependency *) read_lock_file(Arena *arena) {
-	Cmap(Dependency *) lock = map_init(arena);
-
+flint_res_dep_map_t read_lock_file(Arena *arena) {
+	flint_err_t err = FLINT_OK;
 	yyjson_doc *doc = yyjson_read_file("flint.lock", 0, NULL, NULL);
 	if (!doc) {
-		return lock;
+		return FLINT_ERR_VAL(flint_res_dep_map_t, FLINT_ERR_LOCK);
 	}
 
+	Cmap(Dependency *) lock = map_init(arena);
+
 	yyjson_val *root = yyjson_doc_get_root(doc);
+	if (!root) {
+		err = FLINT_ERR_LOCK;
+		goto CLEANUP;
+	}
 	yyjson_val *key, *val;
 	size_t idx, max;
 
 	if (yyjson_is_obj(root)) {
 		yyjson_obj_foreach(root, idx, max, key, val) {
 			Dependency *dep = arena_alloc(arena, sizeof(Dependency));
+			if (!dep) {
+				err = FLINT_ERR_UNKNOWN;
+				goto CLEANUP;
+			}
 			dep->version = safe_get_string(arena, val, "version");
 			dep->remote = safe_get_string(arena, val, "remote");
 			dep->hash = safe_get_string(arena, val, "hash");
@@ -285,9 +294,10 @@ Cmap(Dependency *) read_lock_file(Arena *arena) {
 		}
 	}
 
+CLEANUP:
 	yyjson_doc_free(doc);
-
-	return lock;
+	return err == FLINT_OK ? FLINT_OK_VAL(flint_res_dep_map_t, lock)
+						   : FLINT_ERR_VAL(flint_res_dep_map_t, err);
 }
 
 bool lock_contains(Arena *arena, Cmap(Dependency *) lock, char *libURL) {
@@ -311,9 +321,14 @@ bool lock_contains(Arena *arena, Cmap(Dependency *) lock, char *libURL) {
 	return false;
 }
 
-void write_lock_file(Cmap(Dependency *) lock) {
+flint_err_t write_lock_file(Cmap(Dependency *) lock) {
+	flint_err_t lock_write_err = FLINT_OK;
 	yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *root = yyjson_mut_obj(doc);
+	if (!root) {
+		lock_write_err = FLINT_ERR_LOCK;
+		goto CLEANUP;
+	}
 	yyjson_mut_doc_set_root(doc, root);
 	if (lock) {
 		Vector(char *) dependency_keys = map_keys(lock);
@@ -341,9 +356,13 @@ void write_lock_file(Cmap(Dependency *) lock) {
 	}
 	yyjson_write_flag flg = YYJSON_WRITE_PRETTY;
 	yyjson_write_err err;
-	bool success = yyjson_mut_write_file("flint.lock", doc, flg, NULL, &err);
-	// map_free(&lock);
+	if (!yyjson_mut_write_file("flint.lock", doc, flg, NULL, &err)) {
+		lock_write_err = FLINT_ERR_LOCK;
+	}
+
+CLEANUP:
 	yyjson_mut_doc_free(doc);
+	return lock_write_err;
 }
 
 flint_err_t generate_compile_commands(Config *conf) {

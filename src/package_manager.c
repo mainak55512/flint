@@ -2,12 +2,12 @@
 #include "flint_err.h"
 #include <flint.h>
 
-Vector(String *)
-	remove_arr_entry(Arena *arena, Vector(String *) arr, char *search_str) {
+flint_res_string_vec_t remove_arr_entry(Arena *arena, Vector(String *) arr,
+										char *search_str) {
 	if (!arr)
-		return NULL;
+		return FLINT_ERR_VAL(flint_res_string_vec_t, FLINT_ERR_ARR_REMOVE);
 	if (!length(arr) || !search_str)
-		return arr;
+		return FLINT_OK_VAL(flint_res_string_vec_t, arr);
 
 	Vector(String *) new_vec = vector_init(arena);
 	for (size_t i = 0; i < (size_t)length(arr); i++) {
@@ -17,14 +17,14 @@ Vector(String *)
 			append(new_vec, str);
 		}
 	}
-	// vector_free(&arr);
-	return new_vec;
+	return FLINT_OK_VAL(flint_res_string_vec_t, new_vec);
 }
 
-Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
+flint_res_dep_t clone_lib_hashed(Arena *arena, char *libURL,
+								 const char *ref_hash) {
 	if (!directory_exists("./deps")) {
 		if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
-			return NULL;
+			return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_MKDIR);
 		}
 	}
 
@@ -35,7 +35,8 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	if (!directory_exists(target_dir)) {
 		if (MAKE_DIR(target_dir) != 0 && errno != EEXIST) {
 			arena_temp_end(temp);
-			return NULL;
+			// return NULL;
+			return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_MKDIR);
 		}
 	}
 
@@ -59,7 +60,7 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 			remove_directory(arena, target_dir);
 		}
 		arena_temp_end(temp);
-		return NULL;
+		return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_CMD_EXECUTION);
 	}
 
 	char *raw_tag = get_tag_from_hash(arena, target_dir, ref_hash);
@@ -81,17 +82,18 @@ Dependency *clone_lib_hashed(Arena *arena, char *libURL, const char *ref_hash) {
 	// 			  lib_details->repo_name, string(lib_details->version),
 	// 			  string(lib_details->hash));
 
-	return lib_details;
+	// return lib_details;
+	return FLINT_OK_VAL(flint_res_dep_t, lib_details);
 }
 
-Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
+flint_res_dep_t clone_lib(Arena *arena, char *libURL, const char *hash) {
 	ArenaTemp temp = arena_temp_begin(arena);
 
 	char *url = get_modified_url(arena, libURL);
 	if (url == NULL) {
-		printf("[x] Invalid URL\n");
+		// printf("[x] Invalid URL\n");
 		arena_temp_end(temp);
-		return NULL;
+		return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_INVALID_PATH);
 	}
 
 	char url_buf[1024];
@@ -104,22 +106,23 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 
 	char *temp_repo = get_repo_name(arena, url_buf);
 	if (temp_repo == NULL) {
-		printf("[x] Invalid URL\n");
+		// printf("[x] Invalid URL\n");
 		arena_temp_end(temp);
-		return NULL;
+		return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_INVALID_PATH);
 	}
 
 	char *version_number = get_version_number(arena, libURL);
 	if (version_number == NULL) {
-		printf("[x] Version details missing\n");
+		// printf("[x] Version details missing\n");
 		arena_temp_end(temp);
-		return NULL;
+		// return NULL;
+		return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_INVALID_VERSION);
 	}
 
 	if (!directory_exists("./deps")) {
 		if (MAKE_DIR("./deps") != 0 && errno != EEXIST) {
 			arena_temp_end(temp);
-			return NULL;
+			return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_MKDIR);
 		}
 	}
 
@@ -148,7 +151,8 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 			remove_directory(arena, target_dir);
 		}
 		arena_temp_end(temp);
-		return NULL;
+		// return NULL;
+		return FLINT_ERR_VAL(flint_res_dep_t, FLINT_ERR_CMD_EXECUTION);
 	}
 
 	char *ref_hash = get_lib_hash(arena, target_dir);
@@ -175,7 +179,7 @@ Dependency *clone_lib(Arena *arena, char *libURL, const char *hash) {
 	// 			  lib_details->repo_name, string(lib_details->version),
 	// 			  string(lib_details->hash));
 
-	return lib_details;
+	return FLINT_OK_VAL(flint_res_dep_t, lib_details);
 }
 
 void sync_flags(Config *conf, Vector(String *) flags) {
@@ -280,14 +284,17 @@ void update_lock(Cmap(Dependency *) lock, Dependency *lib) {
 	map_add(lock, lib->repo_name, lib);
 }
 
-void fetch_library(Config *current_config, char *libURL, char *hash,
-				   Cmap(Dependency *) lock, bool sync) {
-	Dependency *lib_details = clone_lib(current_config->arena, libURL, hash);
-	if (lib_details == NULL) {
-		return;
+flint_err_t fetch_library(Config *current_config, char *libURL, char *hash,
+						  Cmap(Dependency *) lock, bool sync) {
+	flint_err_t err = FLINT_OK;
+	flint_res_dep_t lib_details_wraper =
+		clone_lib(current_config->arena, libURL, hash);
+	if (lib_details_wraper.err != FLINT_OK) {
+		return lib_details_wraper.err;
 	}
-	flint_success("Fetched %s (version: %s, hash: %s)", lib_details->repo_name,
-				  string(lib_details->version), string(lib_details->hash));
+	Dependency *lib_details = lib_details_wraper.value;
+	flint_info("Fetched %s (version: %s, hash: %s)", lib_details->repo_name,
+			   string(lib_details->version), string(lib_details->hash));
 
 	update_lock(lock, lib_details);
 	update_dependency_map(current_config, lib_details);
@@ -300,21 +307,22 @@ void fetch_library(Config *current_config, char *libURL, char *hash,
 
 	if (!has_config) {
 		arena_temp_end(temp);
-		return;
+		return FLINT_OK;
 	}
 
 	flint_res_config_t dep_config_wraper = config_init();
 
 	if (dep_config_wraper.err != FLINT_OK) {
-	} // TODO
+		return FLINT_ERR_CONFIG_INIT;
+	}
 
 	Config *dep_config = dep_config_wraper.value;
 
-	flint_err_t read_err =
-		read_flint_composition(string(config_path), dep_config);
+	err = read_flint_composition(string(config_path), dep_config);
 
-	if (read_err != FLINT_OK) {
-	} // TODO
+	if (err != FLINT_OK) {
+		goto CLEANUP;
+	}
 
 	arena_temp_end(temp);
 
@@ -338,29 +346,38 @@ void fetch_library(Config *current_config, char *libURL, char *hash,
 					dep_config->arena, "%s@%s", string(dep_fetch->remote),
 					string(dep_fetch->version)));
 				char *dep_hash = dep_fetch->hash ? string(dep_fetch->hash) : "";
-				fetch_library(current_config, modified_url, dep_hash, lock,
-							  false);
+				err = fetch_library(current_config, modified_url, dep_hash,
+									lock, false);
+				if (err != FLINT_OK) {
+					goto CLEANUP;
+				}
 			}
 		}
 	}
+
+CLEANUP:
 	config_free(dep_config);
+	return err;
 }
 
-void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
-							 char *fragment) {
+flint_err_t sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
+									char *fragment) {
+	flint_err_t err = FLINT_OK;
 	char *colon = strchr(fragment, ':');
 	if (!colon)
-		return;
+		return FLINT_ERR_INVALID_PATH;
+
 	char *repo_name = colon + 1;
 
 	Arena *scratch = arena_init(4096);
-	Sync_config *remote_composition =
+	flint_res_sync_config_t remote_composition_res =
 		get_remote_composition(scratch, repo_name);
-	if (remote_composition == NULL) {
-		flint_error("Unable to fetch remote composition", FLINT_ERR_UNKNOWN);
-		arena_free(&scratch);
-		return;
+	if (remote_composition_res.err != FLINT_OK) {
+		err = remote_composition_res.err;
+		goto CLEANUP;
 	}
+
+	Sync_config *remote_composition = remote_composition_res.value;
 
 	if (!lock_contains(scratch, lock, string(remote_composition->remote))) {
 		char *modified_url = string(
@@ -369,7 +386,10 @@ void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
 		char *hash =
 			remote_composition->hash ? string(remote_composition->hash) : "";
 
-		fetch_library(conf, modified_url, hash, lock, true);
+		err = fetch_library(conf, modified_url, hash, lock, true);
+		if (err != FLINT_OK) {
+			goto CLEANUP;
+		}
 
 		sync_flags(conf, remote_composition->flags);
 		sync_lib_links(conf, remote_composition->lib_links);
@@ -383,7 +403,9 @@ void sync_remote_composition(Config *conf, Cmap(Dependency *) lock,
 				   repo_name);
 	}
 
+CLEANUP:
 	arena_free(&scratch);
+	return err;
 }
 
 flint_err_t add_lib(char *libURL) {
@@ -400,14 +422,29 @@ flint_err_t add_lib(char *libURL) {
 		flint_error("Add library", err);
 		goto CLEANUP;
 	}
-	Cmap(Dependency *) lock = read_lock_file(conf->arena);
+	flint_res_dep_map_t lock_res = read_lock_file(conf->arena);
+	if (lock_res.err != FLINT_OK) {
+		flint_error("Add library", lock_res.err);
+		err = lock_res.err;
+		goto CLEANUP;
+	}
+
+	Cmap(Dependency *) lock = lock_res.value;
 
 	if (strncmp(libURL, "cherts:", 7) == 0) {
-		sync_remote_composition(conf, lock, libURL);
+		err = sync_remote_composition(conf, lock, libURL);
+		if (err != FLINT_OK) {
+			flint_error("Add library", err);
+			goto CLEANUP;
+		}
 	} else {
 		if (!lock_contains(conf->arena, lock,
 						   get_modified_url(conf->arena, libURL))) {
-			fetch_library(conf, libURL, "", lock, false);
+			err = fetch_library(conf, libURL, "", lock, false);
+			if (err != FLINT_OK) {
+				flint_error("Add library", err);
+				goto CLEANUP;
+			}
 		} else {
 			flint_warn("Dependency already available or malformed URL, "
 					   "installation skipped...");
@@ -419,12 +456,18 @@ flint_err_t add_lib(char *libURL) {
 		flint_error("Add library", err);
 		goto CLEANUP;
 	}
-	write_lock_file(lock);
+	err = write_lock_file(lock);
+	if (err != FLINT_OK) {
+		flint_error("Add library", err);
+		goto CLEANUP;
+	}
 	err = generate_compile_commands(conf);
 	if (err != FLINT_OK) {
 		flint_error("Add library", err);
 		goto CLEANUP;
 	}
+
+	flint_success("Package(s) installed successfully");
 
 CLEANUP:
 	config_free(conf);
@@ -453,7 +496,14 @@ flint_err_t sync_lib(char *elem) {
 		arena_temp_end(temp);
 	}
 
-	Cmap(Dependency *) lock = read_lock_file(conf->arena);
+	flint_res_dep_map_t lock_res = read_lock_file(conf->arena);
+	if (lock_res.err != FLINT_OK) {
+		err = lock_res.err;
+		flint_error("Sync library", err);
+		goto CLEANUP;
+	}
+
+	Cmap(Dependency *) lock = lock_res.value;
 
 	if (map_len(conf->sync) > 0) {
 		Vector(char *) sync_keys = map_keys(conf->sync);
@@ -473,7 +523,11 @@ flint_err_t sync_lib(char *elem) {
 						 string(dependency->version));
 				char *hash = dependency->hash ? string(dependency->hash) : "";
 
-				fetch_library(conf, modified_url, hash, lock, true);
+				err = fetch_library(conf, modified_url, hash, lock, true);
+				if (err != FLINT_OK) {
+					flint_error("Sync library", err);
+					goto CLEANUP;
+				}
 
 				sync_flags(conf, dependency->flags);
 				sync_lib_links(conf, dependency->lib_links);
@@ -508,7 +562,11 @@ flint_err_t sync_lib(char *elem) {
 						 string(dependency->version));
 				char *hash = dependency->hash ? string(dependency->hash) : "";
 
-				fetch_library(conf, modified_url, hash, lock, true);
+				err = fetch_library(conf, modified_url, hash, lock, true);
+				if (err != FLINT_OK) {
+					flint_error("Sync library", err);
+					goto CLEANUP;
+				}
 			}
 		}
 		// vector_free(&dep_keys);
@@ -519,26 +577,39 @@ flint_err_t sync_lib(char *elem) {
 		flint_error("Sync library", err);
 		goto CLEANUP;
 	}
-	write_lock_file(lock);
+	err = write_lock_file(lock);
+	if (err != FLINT_OK) {
+		flint_error("Sync library", err);
+		goto CLEANUP;
+	}
 	err = generate_compile_commands(conf);
 	if (err != FLINT_OK) {
 		flint_error("Sync library", err);
 		goto CLEANUP;
 	}
+	flint_success("Package(s) installed successfully");
 
 CLEANUP:
 	config_free(conf);
 	return err;
 }
 
-void remove_library_partial(Arena *arena, char *repo_name) {
-	Cmap(Dependency *) lock = read_lock_file(arena);
+flint_err_t remove_library_partial(Arena *arena, char *repo_name) {
+	flint_res_dep_map_t lock_res = read_lock_file(arena);
+	if (lock_res.err != FLINT_OK) {
+		return lock_res.err;
+	}
+	Cmap(Dependency *) lock = lock_res.value;
 
 	remove_directory(
 		arena, string(string_concat_cstr(arena, 2, "./deps/", repo_name)));
 
 	map_remove(lock, repo_name);
-	write_lock_file(lock);
+	flint_err_t err = write_lock_file(lock);
+	if (err != FLINT_OK) {
+		return err;
+	}
+	return FLINT_OK;
 }
 
 flint_err_t remove_library(char *repo_name) {
@@ -557,30 +628,55 @@ flint_err_t remove_library(char *repo_name) {
 	}
 
 	if (!map_has(conf->dependencies, repo_name)) {
-		// config_free(conf);
 		flint_warn("No dependency named '%s' found", repo_name);
 		goto CLEANUP;
-		// return;
 	}
 
-	// printf("[+] Removing '%s'...\n", repo_name);
-
 	ArenaTemp temp = arena_temp_begin(conf->arena);
-	remove_library_partial(conf->arena, repo_name);
+	err = remove_library_partial(conf->arena, repo_name);
+	if (err != FLINT_OK) {
+		flint_error("Remove library", err);
+		goto CLEANUP;
+	}
 	arena_temp_end(temp);
 
 	char search_str[512];
 	snprintf(search_str, sizeof(search_str), "deps/%s", repo_name);
 
-	conf->excludes = remove_arr_entry(conf->arena, conf->excludes, search_str);
-	conf->exclude_dirs =
+	flint_res_string_vec_t excludes_res_arr =
+		remove_arr_entry(conf->arena, conf->excludes, search_str);
+	if (excludes_res_arr.err == FLINT_OK) {
+		conf->excludes = excludes_res_arr.value;
+	} else {
+		flint_error("Remove library", excludes_res_arr.err);
+		err = excludes_res_arr.err;
+		goto CLEANUP;
+	}
+	flint_res_string_vec_t exclude_dir_res_arr =
 		remove_arr_entry(conf->arena, conf->exclude_dirs, search_str);
-	conf->exclude_exception =
+	if (exclude_dir_res_arr.err == FLINT_OK) {
+		conf->exclude_dirs = exclude_dir_res_arr.value;
+	} else {
+		flint_error("Remove library", exclude_dir_res_arr.err);
+		err = exclude_dir_res_arr.err;
+		goto CLEANUP;
+	}
+	flint_res_string_vec_t exclude_exception_res_arr =
 		remove_arr_entry(conf->arena, conf->exclude_exception, search_str);
+	if (exclude_exception_res_arr.err == FLINT_OK) {
+		conf->exclude_exception = exclude_exception_res_arr.value;
+	} else {
+		flint_error("Remove library", exclude_exception_res_arr.err);
+		err = exclude_exception_res_arr.err;
+		goto CLEANUP;
+	}
+	// conf->exclude_dirs =
+	// 	remove_arr_entry(conf->arena, conf->exclude_dirs, search_str);
+	// conf->exclude_exception =
+	// 	remove_arr_entry(conf->arena, conf->exclude_exception, search_str);
 
 	map_remove(conf->dependencies, repo_name);
 
-	flint_success("Removed %s!", repo_name);
 	err = write_flint_composition("composition.json", conf);
 	if (err != FLINT_OK) {
 		flint_error("Remove library", err);
@@ -591,6 +687,7 @@ flint_err_t remove_library(char *repo_name) {
 		flint_error("Remove library", err);
 		goto CLEANUP;
 	}
+	flint_success("Removed %s!", repo_name);
 
 CLEANUP:
 	config_free(conf);
