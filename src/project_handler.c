@@ -125,6 +125,12 @@ flint_err_t init_project() {
 		conf->compiler_path = string_from(conf->arena, "gcc");
 	}
 
+	if (STR_CMP(string(conf->project_name), "") == 0) {
+		flint_error("Init project", FLINT_ERR_MISSING_NAME);
+		ret = FLINT_ERR_MISSING_NAME;
+		goto CLEANUP;
+	}
+
 	flint_res_bool_t compiler =
 		check_available_tool(string(conf->compiler_path));
 	if (compiler.err != FLINT_OK) {

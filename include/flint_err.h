@@ -7,6 +7,7 @@
 #define FLINT_ERROR_LIST(X)                                                    \
 	X(FLINT_OK, "Success")                                                     \
 	X(FLINT_ERR_UNKNOWN, "Unknown error")                                      \
+	X(FLINT_ERR_MISSING_NAME, "Missing project name")                          \
 	X(FLINT_ERR_COMPOSITION_READ, "Failed to read composition")                \
 	X(FLINT_ERR_COMPOSITION_WRITE, "Failed to write composition")              \
 	X(FLINT_ERR_TOOL_UNAVAILABLE, "Required tool is unavailable")              \
