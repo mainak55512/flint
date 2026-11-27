@@ -65,16 +65,13 @@ jobs:
             -DMG_ENABLE_LOG=0 \
             -DPROJECT_VERSION=\"${{ steps.vars.outputs.version }}\" \
             -I./include \
-            -I./deps/arena/include \
-            -I./deps/CString/include \
-            -I./deps/container/include \
-            -I./deps/Cmap/include \
+            -I./deps/arstd/include \
             -I./deps/yyjson/src \
             -I./deps/mongoose \
-            ./deps/arena/lib/arena.c \
-            ./deps/CString/lib/cstring.c \
-            ./deps/container/lib/cvector.c \
-            ./deps/Cmap/lib/cmap.c \
+            ./deps/arstd/lib/arena.c \
+            ./deps/arstd/lib/cstring.c \
+            ./deps/arstd/lib/cvector.c \
+            ./deps/arstd/lib/cmap.c \
             ./deps/yyjson/src/yyjson.c \
             ./deps/mongoose/mongoose.c \
             ./src/main.c \
@@ -84,6 +81,8 @@ jobs:
             ./src/file_handler.c \
             ./src/package_manager.c \
             ./src/utils.c \
+            ./src/flint_err.c \
+            ./src/flint_log.c \
             ./src/project_handler.c \
             -o "${{ matrix.bin_name }}"
 
@@ -110,16 +109,13 @@ jobs:
             "-DMG_ENABLE_LOG=0",
             "-DPROJECT_VERSION=`"${{ steps.vars.outputs.version }}`"",
             "-I./include",
-            "-I./deps/arena/include",
-            "-I./deps/CString/include",
-            "-I./deps/container/include",
-            "-I./deps/Cmap/include",
+            "-I./deps/arstd/include",
             "-I./deps/yyjson/src",
             "-I./deps/mongoose",
-            "./deps/arena/lib/arena.c",
-            "./deps/CString/lib/cstring.c",
-            "./deps/container/lib/cvector.c",
-            "./deps/Cmap/lib/cmap.c",
+            "./deps/arstd/lib/arena.c",
+            "./deps/arstd/lib/cstring.c",
+            "./deps/arstd/lib/cvector.c",
+            "./deps/arstd/lib/cmap.c",
             "./deps/yyjson/src/yyjson.c",
             "./deps/mongoose/mongoose.c",
             "./src/main.c",
@@ -129,6 +125,8 @@ jobs:
             "./src/file_handler.c",
             "./src/package_manager.c",
             "./src/utils.c",
+            "./src/flint_err.c",
+            "./src/flint_log.c",
             "./src/project_handler.c",
             "version.res",
             "-lws2_32",
